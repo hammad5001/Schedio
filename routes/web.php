@@ -26,6 +26,11 @@ Route::middleware(['auth', 'approved'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+    // Meetings Module
+    Route::resource('meetings', \App\Http\Controllers\MeetingController::class);
+    Route::patch('/meetings/{meeting}/cancel', [\App\Http\Controllers\MeetingController::class, 'cancel'])->name('meetings.cancel');
+    Route::post('/meetings/{meeting}/rsvp', [\App\Http\Controllers\MeetingController::class, 'rsvp'])->name('meetings.rsvp');
+
     // Calendar Hub
     Route::prefix('calendar')->name('calendar.')->group(function () {
         Route::get('/', [\App\Http\Controllers\CalendarController::class, 'index'])->name('index');

@@ -42,6 +42,17 @@
                 <span>Executive Overview</span>
             </a>
 
+            <!-- Meetings Hub -->
+            <a href="{{ route('meetings.index') }}"
+                class="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all {{ request()->routeIs('meetings.*') ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-300 hover:text-white hover:bg-slate-850/60' }}">
+                <div class="flex items-center gap-3">
+                    <svg class="w-4 h-4 {{ request()->routeIs('meetings.*') ? 'text-white' : 'text-purple-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                    <span>Meetings Hub</span>
+                </div>
+            </a>
+
             <!-- Calendar Workspace -->
             <a href="{{ route('calendar.index') }}"
                 class="flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all {{ request()->routeIs('calendar.*') ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-300 hover:text-white hover:bg-slate-850/60' }}">
@@ -51,7 +62,7 @@
                     </svg>
                     <span>Full Calendar Hub</span>
                 </div>
-                <span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Interactive</span>
+                <span class="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Live</span>
             </a>
 
             <!-- Meeting Suites & Rooms -->
