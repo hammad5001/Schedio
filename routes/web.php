@@ -26,6 +26,15 @@ Route::middleware(['auth', 'approved'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+    // Calendar Hub
+    Route::prefix('calendar')->name('calendar.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\CalendarController::class, 'index'])->name('index');
+        Route::get('/feed', [\App\Http\Controllers\CalendarController::class, 'feed'])->name('feed');
+        Route::post('/', [\App\Http\Controllers\CalendarController::class, 'store'])->name('store');
+        Route::patch('/{type}/{id}/time', [\App\Http\Controllers\CalendarController::class, 'updateTime'])->name('update-time');
+        Route::delete('/{type}/{id}', [\App\Http\Controllers\CalendarController::class, 'destroy'])->name('destroy');
+    });
+
     // Super Admin registration request management
     Route::middleware('super_admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/registration-requests', [RegistrationRequestController::class, 'index'])->name('registration-requests.index');

@@ -10,3 +10,105 @@
     --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
+
+/* FullCalendar Dark Theme Overrides */
+.fc {
+    --fc-border-color: rgba(51, 65, 85, 0.4);
+    --fc-page-bg-color: transparent;
+    --fc-neutral-bg-color: rgba(30, 41, 59, 0.5);
+    --fc-list-event-hover-bg-color: rgba(51, 65, 85, 0.5);
+    --fc-today-bg-color: rgba(99, 102, 241, 0.08);
+    font-family: inherit;
+}
+
+.fc .fc-toolbar-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #f8fafc;
+    letter-spacing: -0.025em;
+}
+
+.fc .fc-button {
+    background-color: rgba(30, 41, 59, 0.8) !important;
+    border-color: rgba(51, 65, 85, 0.8) !important;
+    color: #cbd5e1 !important;
+    border-radius: 0.75rem !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    padding: 0.45rem 0.85rem !important;
+    text-transform: capitalize !important;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
+}
+
+.fc .fc-button:hover {
+    background-color: rgba(51, 65, 85, 0.9) !important;
+    color: #ffffff !important;
+    border-color: rgba(99, 102, 241, 0.5) !important;
+}
+
+.fc .fc-button-active,
+.fc .fc-button-primary:not(:disabled):active,
+.fc .fc-button-primary:not(:disabled).fc-button-active {
+    background-color: #4f46e5 !important;
+    border-color: #6366f1 !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3) !important;
+}
+
+.fc .fc-col-header-cell-cushion {
+    color: #94a3b8;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+}
+
+.fc-theme-standard td, .fc-theme-standard th {
+    border-color: rgba(51, 65, 85, 0.4) !important;
+}
+
+.fc .fc-daygrid-day-number {
+    color: #94a3b8;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.35rem 0.5rem;
+}
+
+.fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+    color: #818cf8;
+    font-weight: 800;
+}
+
+.fc-event {
+    border-radius: 0.5rem !important;
+    padding: 2px 4px !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+    cursor: pointer !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.fc-event:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.fc-timegrid-slot-label-cushion {
+    color: #64748b;
+    font-size: 0.7rem;
+    font-family: monospace;
+}
+
+.fc-list-day-cushion {
+    background-color: rgba(30, 41, 59, 0.9) !important;
+    color: #f1f5f9 !important;
+    font-weight: 700 !important;
+}
+
+.fc-list-event:hover td {
+    background-color: rgba(51, 65, 85, 0.3) !important;
+}
