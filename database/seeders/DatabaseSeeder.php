@@ -24,36 +24,37 @@ class DatabaseSeeder extends Seeder
     {
         // 1. Seed Core Departments
         $engineering = Department::create([
-            'name' => 'Engineering',
+            'name' => 'Engineering & Technology',
             'code' => 'ENG',
-            'description' => 'Software engineering, DevOps, and technical architecture.',
+            'description' => 'Software engineering, DevOps, and cloud infrastructure architecture.',
             'is_active' => true,
         ]);
 
         $product = Department::create([
             'name' => 'Product & Design',
             'code' => 'PROD',
-            'description' => 'Product management, UX/UI design, and user research.',
+            'description' => 'Product strategy, UX/UI design systems, and user research.',
             'is_active' => true,
         ]);
 
-        $operations = Department::create([
-            'name' => 'Operations & HR',
+        $clientOps = Department::create([
+            'name' => 'Client Success & Operations',
             'code' => 'OPS',
-            'description' => 'Human resources, office management, and business operations.',
+            'description' => 'Account management, external client relationships, and business operations.',
             'is_active' => true,
         ]);
 
-        // 2. Seed Users
-        $admin = User::create([
+        // 2. Seed Super Admin & Core Users
+        $superAdmin = User::create([
             'name' => 'Alex Rivera',
-            'title' => 'Chief Technology Officer',
+            'title' => 'Chief Technology Officer & Super Admin',
             'email' => 'admin@schedio.com',
             'phone' => '+1 (555) 019-2834',
             'password' => Hash::make('password'),
             'department_id' => $engineering->id,
-            'role' => 'admin',
-            'avatar_url' => null,
+            'role' => User::ROLE_SUPER_ADMIN,
+            'approval_status' => User::STATUS_APPROVED,
+            'approved_at' => now(),
             'timezone' => 'America/New_York',
             'is_active' => true,
             'email_verified_at' => now(),
@@ -66,8 +67,10 @@ class DatabaseSeeder extends Seeder
             'phone' => '+1 (555) 014-9921',
             'password' => Hash::make('password'),
             'department_id' => $product->id,
-            'role' => 'manager',
-            'avatar_url' => null,
+            'role' => User::ROLE_MANAGER,
+            'approval_status' => User::STATUS_APPROVED,
+            'approved_at' => now(),
+            'approved_by' => $superAdmin->id,
             'timezone' => 'America/New_York',
             'is_active' => true,
             'email_verified_at' => now(),
@@ -75,44 +78,77 @@ class DatabaseSeeder extends Seeder
 
         $employee1 = User::create([
             'name' => 'Marcus Vance',
-            'title' => 'Senior Full Stack Engineer',
+            'title' => 'Senior Systems Engineer',
             'email' => 'marcus.v@schedio.com',
             'phone' => '+1 (555) 018-3729',
             'password' => Hash::make('password'),
             'department_id' => $engineering->id,
-            'role' => 'employee',
-            'avatar_url' => null,
+            'role' => User::ROLE_EMPLOYEE,
+            'approval_status' => User::STATUS_APPROVED,
+            'approved_at' => now(),
+            'approved_by' => $superAdmin->id,
             'timezone' => 'America/New_York',
             'is_active' => true,
             'email_verified_at' => now(),
         ]);
 
-        $employee2 = User::create([
-            'name' => 'Elena Rostova',
-            'title' => 'Lead Product Designer',
-            'email' => 'elena.r@schedio.com',
-            'phone' => '+1 (555) 012-4411',
+        $clientUser = User::create([
+            'name' => 'David Sterling',
+            'title' => 'Partner / Enterprise Lead (Acme Corp)',
+            'email' => 'david.sterling@acme.com',
+            'phone' => '+1 (555) 015-8833',
             'password' => Hash::make('password'),
-            'department_id' => $product->id,
-            'role' => 'employee',
-            'avatar_url' => null,
+            'department_id' => $clientOps->id,
+            'role' => User::ROLE_CLIENT,
+            'approval_status' => User::STATUS_APPROVED,
+            'approved_at' => now(),
+            'approved_by' => $superAdmin->id,
             'timezone' => 'America/New_York',
             'is_active' => true,
             'email_verified_at' => now(),
+        ]);
+
+        // Seed Pending Registration Requests
+        $pendingUser1 = User::create([
+            'name' => 'Sophia Lin',
+            'title' => 'Frontend UI Engineer',
+            'email' => 'sophia.lin@schedio.com',
+            'phone' => '+1 (555) 017-4920',
+            'password' => Hash::make('password'),
+            'department_id' => $engineering->id,
+            'role' => User::ROLE_EMPLOYEE,
+            'approval_status' => User::STATUS_PENDING,
+            'registration_notes' => 'Joined frontend squad under Alex Rivera. Need calendar & room access.',
+            'timezone' => 'America/New_York',
+            'is_active' => true,
+        ]);
+
+        $pendingUser2 = User::create([
+            'name' => 'Jessica Taylor',
+            'title' => 'Procurement Director (Initech Global)',
+            'email' => 'jessica.t@initech.com',
+            'phone' => '+1 (555) 016-7733',
+            'password' => Hash::make('password'),
+            'department_id' => $clientOps->id,
+            'role' => User::ROLE_EMPLOYEE,
+            'approval_status' => User::STATUS_PENDING,
+            'registration_notes' => 'External vendor lead for Q4 joint infrastructure integration.',
+            'timezone' => 'America/Chicago',
+            'is_active' => true,
         ]);
 
         // Assign department managers
-        $engineering->update(['manager_id' => $admin->id]);
+        $engineering->update(['manager_id' => $superAdmin->id]);
         $product->update(['manager_id' => $manager->id]);
-        $operations->update(['manager_id' => $admin->id]);
+        $clientOps->update(['manager_id' => $superAdmin->id]);
 
         // 3. Seed Meeting Rooms
         $boardroom = Room::create([
-            'name' => 'Apollo Boardroom',
+            'name' => 'Apollo Executive Boardroom',
             'code' => 'ROOM-APOLLO',
             'location' => 'Floor 4, East Wing',
             'capacity' => 16,
-            'amenities' => ['4K Dual Displays', 'Video Conference Bar', 'Whiteboard', 'Airplay & HDMI', 'Coffee Station'],
+            'amenities' => ['4K Dual Displays', 'Cisco Telepresence', 'Smart Whiteboard', 'Airplay & HDMI', 'Coffee Station'],
             'color' => '#6366f1',
             'is_active' => true,
         ]);
@@ -122,26 +158,26 @@ class DatabaseSeeder extends Seeder
             'code' => 'ROOM-ORION',
             'location' => 'Floor 3, West Wing',
             'capacity' => 4,
-            'amenities' => ['Acoustic Insulation', 'Ultra-wide Monitor', 'Jabra Mic Speaker'],
+            'amenities' => ['Acoustic Insulation', 'Ultra-wide Monitor', 'Jabra Wireless Speakerphone'],
             'color' => '#06b6d4',
             'is_active' => true,
         ]);
 
-        $virtualHub = Room::create([
-            'name' => 'Virtual Hub / Studio',
-            'code' => 'ROOM-STUDIO',
-            'location' => 'Online Dedicated Studio',
-            'capacity' => 100,
-            'amenities' => ['Studio Lighting', 'High-Gain Shure Mics', 'OBS Streaming Setup'],
+        $clientLounge = Room::create([
+            'name' => 'Nova Client Suite',
+            'code' => 'ROOM-NOVA',
+            'location' => 'Floor 2, VIP Reception',
+            'capacity' => 8,
+            'amenities' => ['Executive Lounge Seating', 'Presentation Screen', 'Private Video Booth'],
             'color' => '#10b981',
             'is_active' => true,
         ]);
 
-        // 4. Seed Upcoming Meetings
-        $meeting1 = Meeting::create([
+        // 4. Seed Meetings (Internal and External/Client)
+        $internalMeeting = Meeting::create([
             'title' => 'Q4 Sprint Planning & Architecture Review',
-            'description' => 'Review technical roadmap, microservice decoupling milestones, and database optimization.',
-            'organizer_id' => $admin->id,
+            'description' => 'Review technical roadmap, microservice decoupling milestones, and PostgreSQL index optimizations.',
+            'organizer_id' => $superAdmin->id,
             'department_id' => $engineering->id,
             'room_id' => $boardroom->id,
             'start_time' => Carbon::now()->addDay()->setTime(10, 0, 0),
@@ -150,42 +186,40 @@ class DatabaseSeeder extends Seeder
             'status' => 'scheduled',
             'type' => 'hybrid',
             'meeting_link' => 'https://meet.schedio.com/eng-sprint-q4',
-            'location' => 'Apollo Boardroom & Google Meet',
+            'location' => 'Apollo Executive Boardroom & Google Meet',
             'is_private' => false,
-            'recurrence' => null,
             'metadata' => ['agenda_doc' => 'https://docs.schedio.com/eng/q4-plan'],
         ]);
 
-        $meeting2 = Meeting::create([
-            'title' => 'Design System 2.0 & Component Sync',
-            'description' => 'Review dark mode token updates and Figma-to-Blade component parity.',
-            'organizer_id' => $manager->id,
-            'department_id' => $product->id,
-            'room_id' => $focusRoom->id,
+        $clientMeeting = Meeting::create([
+            'title' => 'Acme Corp — Q4 Enterprise Architecture & SLA Review',
+            'description' => 'Joint quarterly business review with David Sterling regarding enterprise uptime and roadmap delivery.',
+            'organizer_id' => $superAdmin->id,
+            'department_id' => $clientOps->id,
+            'room_id' => $clientLounge->id,
             'start_time' => Carbon::now()->addDays(2)->setTime(14, 0, 0),
-            'end_time' => Carbon::now()->addDays(2)->setTime(15, 0, 0),
+            'end_time' => Carbon::now()->addDays(2)->setTime(15, 30, 0),
             'timezone' => 'America/New_York',
             'status' => 'scheduled',
-            'type' => 'in_person',
-            'meeting_link' => null,
-            'location' => 'Orion Focus Pod',
+            'type' => 'hybrid',
+            'meeting_link' => 'https://meet.schedio.com/acme-q4-review',
+            'location' => 'Nova Client Suite & Zoom Room',
             'is_private' => false,
-            'recurrence' => null,
-            'metadata' => ['figma_file' => 'https://figma.com/@schedio/design-system'],
+            'metadata' => ['client_code' => 'ACME-2026', 'sla_tier' => 'Platinum'],
         ]);
 
         // 5. Seed Meeting Participants
         MeetingParticipant::create([
-            'meeting_id' => $meeting1->id,
-            'user_id' => $admin->id,
+            'meeting_id' => $internalMeeting->id,
+            'user_id' => $superAdmin->id,
             'status' => 'accepted',
             'role' => 'host',
-            'response_notes' => 'Organizing presentation and agenda.',
+            'response_notes' => 'Organizing agenda and architectural overview.',
             'responded_at' => now(),
         ]);
 
         MeetingParticipant::create([
-            'meeting_id' => $meeting1->id,
+            'meeting_id' => $internalMeeting->id,
             'user_id' => $employee1->id,
             'status' => 'accepted',
             'role' => 'presenter',
@@ -194,145 +228,94 @@ class DatabaseSeeder extends Seeder
         ]);
 
         MeetingParticipant::create([
-            'meeting_id' => $meeting1->id,
+            'meeting_id' => $internalMeeting->id,
             'user_id' => $manager->id,
             'status' => 'tentative',
             'role' => 'attendee',
-            'response_notes' => 'May arrive 10 minutes late due to client sync.',
+            'response_notes' => 'May join 10m into the session.',
             'responded_at' => now(),
         ]);
 
         MeetingParticipant::create([
-            'meeting_id' => $meeting2->id,
-            'user_id' => $manager->id,
+            'meeting_id' => $clientMeeting->id,
+            'user_id' => $superAdmin->id,
             'status' => 'accepted',
             'role' => 'host',
-            'response_notes' => null,
+            'response_notes' => 'Leading enterprise SLA review.',
             'responded_at' => now(),
         ]);
 
         MeetingParticipant::create([
-            'meeting_id' => $meeting2->id,
-            'user_id' => $employee2->id,
+            'meeting_id' => $clientMeeting->id,
+            'user_id' => $clientUser->id,
             'status' => 'accepted',
-            'role' => 'presenter',
-            'response_notes' => 'Figma mocks ready for review.',
+            'role' => 'attendee',
+            'response_notes' => 'Attending from Acme Corp leadership team.',
             'responded_at' => now(),
         ]);
 
         // 6. Seed Events
         Event::create([
-            'title' => 'Annual All-Hands & Product Keynote',
-            'description' => 'Company-wide town hall celebrating annual milestones and launching Schedio v2.',
-            'user_id' => $admin->id,
+            'title' => 'Annual Schedio Engineering Summit',
+            'description' => 'Company-wide tech conference and product showcase.',
+            'user_id' => $superAdmin->id,
             'department_id' => null,
             'category' => 'milestone',
-            'start_time' => Carbon::now()->addDays(5)->setTime(9, 0, 0),
-            'end_time' => Carbon::now()->addDays(5)->setTime(17, 0, 0),
+            'start_time' => Carbon::now()->addDays(7)->setTime(9, 0, 0),
+            'end_time' => Carbon::now()->addDays(7)->setTime(18, 0, 0),
             'is_all_day' => true,
-            'color' => '#8b5cf6',
-            'location' => 'Main Auditorium & Live Stream',
+            'color' => '#6366f1',
+            'location' => 'Main Innovation Center',
             'is_company_wide' => true,
-        ]);
-
-        Event::create([
-            'title' => 'Engineering Hackathon',
-            'description' => '48-hour innovation sprint focusing on AI schedule optimizations.',
-            'user_id' => $admin->id,
-            'department_id' => $engineering->id,
-            'category' => 'training',
-            'start_time' => Carbon::now()->addDays(12)->setTime(9, 0, 0),
-            'end_time' => Carbon::now()->addDays(14)->setTime(18, 0, 0),
-            'is_all_day' => false,
-            'color' => '#ec4899',
-            'location' => 'Engineering Wing',
-            'is_company_wide' => false,
         ]);
 
         // 7. Seed Tasks
         $task1 = Task::create([
-            'title' => 'Prepare PostgreSQL Partitioning Benchmark Report',
-            'description' => 'Document performance gains on meeting_participants and audit_logs indexed scans.',
+            'title' => 'Verify PostgreSQL Multi-Tenant Partitioning Performance',
+            'description' => 'Run stress tests and review query execution plans on indexed tables.',
             'assigned_to' => $employee1->id,
-            'created_by' => $admin->id,
+            'created_by' => $superAdmin->id,
             'department_id' => $engineering->id,
-            'meeting_id' => $meeting1->id,
+            'meeting_id' => $internalMeeting->id,
             'status' => 'in_progress',
             'priority' => 'high',
-            'due_date' => Carbon::now()->addDays(3)->setTime(18, 0, 0),
-        ]);
-
-        $task2 = Task::create([
-            'title' => 'Finalize Dark Mode Token Palette',
-            'description' => 'Export updated Tailwind color config for UI calendar components.',
-            'assigned_to' => $employee2->id,
-            'created_by' => $manager->id,
-            'department_id' => $product->id,
-            'meeting_id' => $meeting2->id,
-            'status' => 'todo',
-            'priority' => 'medium',
-            'due_date' => Carbon::now()->addDays(4)->setTime(17, 0, 0),
+            'due_date' => Carbon::now()->addDays(3)->setTime(17, 0, 0),
         ]);
 
         // 8. Seed Reminders
         Reminder::create([
             'user_id' => $employee1->id,
             'title' => 'Upcoming Meeting: Q4 Sprint Planning',
-            'message' => 'Your presentation is in 15 minutes in Apollo Boardroom.',
+            'message' => 'Your presentation starts in 15 minutes.',
             'remindable_type' => Meeting::class,
-            'remindable_id' => $meeting1->id,
+            'remindable_id' => $internalMeeting->id,
             'remind_at' => Carbon::now()->addDay()->setTime(9, 45, 0),
             'channel' => 'in_app',
             'status' => 'pending',
-            'payload' => ['urgency' => 'high', 'meeting_id' => $meeting1->id],
-        ]);
-
-        Reminder::create([
-            'user_id' => $employee1->id,
-            'title' => 'Task Due Soon: PostgreSQL Partitioning Report',
-            'message' => 'Task is due tomorrow at 6:00 PM.',
-            'remindable_type' => Task::class,
-            'remindable_id' => $task1->id,
-            'remind_at' => Carbon::now()->addDays(2)->setTime(9, 0, 0),
-            'channel' => 'in_app',
-            'status' => 'pending',
-            'payload' => ['task_id' => $task1->id],
+            'payload' => ['meeting_id' => $internalMeeting->id],
         ]);
 
         // 9. Seed Audit Logs
         AuditLog::create([
-            'user_id' => $admin->id,
-            'action' => 'created',
-            'auditable_type' => Meeting::class,
-            'auditable_id' => $meeting1->id,
-            'description' => 'Created Q4 Sprint Planning meeting and scheduled in Apollo Boardroom.',
-            'old_values' => null,
-            'new_values' => [
-                'title' => $meeting1->title,
-                'room_id' => $meeting1->room_id,
-                'start_time' => $meeting1->start_time->toISOString(),
-                'end_time' => $meeting1->end_time->toISOString(),
-            ],
+            'user_id' => $superAdmin->id,
+            'action' => 'login',
+            'auditable_type' => User::class,
+            'auditable_id' => $superAdmin->id,
+            'description' => 'Super Admin Alex Rivera authenticated from primary workstation.',
             'ip_address' => '127.0.0.1',
             'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Schedio/1.0',
-            'metadata' => ['source' => 'web_portal'],
+            'metadata' => ['role' => 'super_admin'],
         ]);
 
         AuditLog::create([
-            'user_id' => $admin->id,
-            'action' => 'created',
-            'auditable_type' => Task::class,
-            'auditable_id' => $task1->id,
-            'description' => 'Assigned task "Prepare PostgreSQL Partitioning Benchmark Report" to Marcus Vance.',
-            'old_values' => null,
-            'new_values' => [
-                'title' => $task1->title,
-                'assigned_to' => $employee1->name,
-                'priority' => 'high',
-            ],
+            'user_id' => null,
+            'action' => 'registration_requested',
+            'auditable_type' => User::class,
+            'auditable_id' => $pendingUser1->id,
+            'description' => 'Registration request submitted by Sophia Lin (sophia.lin@schedio.com).',
             'ip_address' => '127.0.0.1',
-            'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Schedio/1.0',
-            'metadata' => ['source' => 'meeting_action_items'],
+            'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+            'new_values' => ['name' => $pendingUser1->name, 'email' => $pendingUser1->email],
         ]);
     }
 }

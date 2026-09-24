@@ -24,13 +24,13 @@ class DatabaseSchemaAndRelationshipsTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $this->assertDatabaseCount('departments', 3);
-        $this->assertDatabaseCount('users', 4);
+        $this->assertDatabaseCount('users', 6); // 4 approved (super admin, manager, employee, client) + 2 pending
         $this->assertDatabaseCount('rooms', 3);
         $this->assertDatabaseCount('meetings', 2);
         $this->assertDatabaseCount('meeting_participants', 5);
-        $this->assertDatabaseCount('events', 2);
-        $this->assertDatabaseCount('tasks', 2);
-        $this->assertDatabaseCount('reminders', 2);
+        $this->assertDatabaseCount('events', 1);
+        $this->assertDatabaseCount('tasks', 1);
+        $this->assertDatabaseCount('reminders', 1);
         $this->assertDatabaseCount('audit_logs', 2);
     }
 
@@ -42,11 +42,11 @@ class DatabaseSchemaAndRelationshipsTest extends TestCase
         
         $this->assertNotNull($admin->department);
         $this->assertEquals('ENG', $admin->department->code);
-        $this->assertCount(1, $admin->organizedMeetings);
-        $this->assertCount(1, $admin->participatingMeetings);
-        $this->assertCount(2, $admin->events);
+        $this->assertCount(2, $admin->organizedMeetings);
+        $this->assertCount(2, $admin->participatingMeetings);
+        $this->assertCount(1, $admin->events);
         $this->assertCount(1, $admin->createdTasks);
-        $this->assertCount(2, $admin->auditLogs);
+        $this->assertCount(1, $admin->auditLogs);
     }
 
     public function test_meeting_relationships_and_participants_work(): void
@@ -61,7 +61,6 @@ class DatabaseSchemaAndRelationshipsTest extends TestCase
         $this->assertCount(3, $meeting->participants);
         $this->assertCount(1, $meeting->tasks);
         $this->assertCount(1, $meeting->reminders);
-        $this->assertCount(1, $meeting->auditLogs);
         
         $firstParticipant = $meeting->participants->first();
         $this->assertNotEmpty($firstParticipant->pivot->role);

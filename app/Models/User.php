@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -17,6 +18,15 @@ class User extends Authenticatable
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, SoftDeletes;
 
+    public const ROLE_SUPER_ADMIN = 'super_admin';
+    public const ROLE_MANAGER = 'manager';
+    public const ROLE_EMPLOYEE = 'employee';
+    public const ROLE_CLIENT = 'client';
+
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_APPROVED = 'approved';
+    public const STATUS_REJECTED = 'rejected';
+
     /**
      * The attributes that are mass assignable.
      *
@@ -30,6 +40,11 @@ class User extends Authenticatable
         'password',
         'department_id',
         'role',
+        'approval_status',
+        'approved_at',
+        'approved_by',
+        'rejection_reason',
+        'registration_notes',
         'avatar_url',
         'timezone',
         'is_active',
@@ -54,9 +69,67 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'approved_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
         ];
+    }
+
+    /**
+     * Scope for pending approval requests.
+     */
+    public function scopePending(Builder $query): Builder
+    {
+        return $query->where('approval_status', self::STATUS_PENDING);
+    }
+
+    /**
+     * Scope for approved users.
+     */
+    public function scopeApproved(Builder $query): Builder
+    {
+        return $query->where('approval_status', self::STATUS_APPROVED);
+    }
+
+    /**
+     * Status & Role check helpers.
+     */
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === self::ROLE_SUPER_ADMIN;
+    }
+
+    public function isManager(): bool
+    {
+        return in_array($this->role, [self::ROLE_SUPER_ADMIN, self::ROLE_MANAGER], true);
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->approval_status === self::STATUS_APPROVED;
+    }
+
+    public function isPending(): bool
+    {
+        return $this->approval_status === self::STATUS_PENDING;
+    }
+
+    public function isRejected(): bool
+    {
+        return $this->approval_status === self::STATUS_REJECTED;
+    }
+
+    public function canLogin(): bool
+    {
+        return $this->is_active && ($this->isSuperAdmin() || $this->isApproved());
+    }
+
+    /**
+     * Approver relationship.
+     */
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     /**
@@ -131,18 +204,5 @@ class User extends Authenticatable
     public function auditLogs(): HasMany
     {
         return $this->hasMany(AuditLog::class);
-    }
-
-    /**
-     * Convenience helpers
-     */
-    public function isAdmin(): bool
-    {
-        return $this->role === 'admin';
-    }
-
-    public function isManager(): bool
-    {
-        return in_array($this->role, ['admin', 'manager'], true);
     }
 }
