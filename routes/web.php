@@ -31,6 +31,10 @@ Route::middleware(['auth', 'approved'])->group(function () {
     Route::patch('/meetings/{meeting}/cancel', [\App\Http\Controllers\MeetingController::class, 'cancel'])->name('meetings.cancel');
     Route::post('/meetings/{meeting}/rsvp', [\App\Http\Controllers\MeetingController::class, 'rsvp'])->name('meetings.rsvp');
 
+    // Availability & Conflict Detection API
+    Route::post('/availability/check', [\App\Http\Controllers\AvailabilityController::class, 'check'])->name('availability.check');
+    Route::get('/availability/suggestions', [\App\Http\Controllers\AvailabilityController::class, 'suggestions'])->name('availability.suggestions');
+
     // Calendar Hub
     Route::prefix('calendar')->name('calendar.')->group(function () {
         Route::get('/', [\App\Http\Controllers\CalendarController::class, 'index'])->name('index');
