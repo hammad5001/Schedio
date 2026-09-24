@@ -130,7 +130,7 @@ class MeetingController extends Controller
             'client_email' => ['nullable', 'email', 'max:150'],
             'client_company' => ['nullable', 'string', 'max:150'],
             'recurrence_frequency' => ['nullable', 'string', 'in:none,daily,weekly,biweekly,monthly'],
-            'reminder_minutes' => ['nullable', 'integer', 'in:0,10,15,30,60,1440'],
+            'reminder_minutes' => ['nullable', 'integer', 'in:0,5,10,15,30,60,1440'],
             'participant_ids' => ['nullable', 'array'],
             'participant_ids.*' => ['exists:users,id'],
         ]);
@@ -213,20 +213,13 @@ class MeetingController extends Controller
                 }
             }
 
-            // Create Scheduled Reminder if selected
+            // Schedule Reminders for Organizer + Participants using Reminder Engine
             if (!empty($validated['reminder_minutes']) && $validated['reminder_minutes'] > 0) {
-                $remindAt = $startTime->copy()->subMinutes((int) $validated['reminder_minutes']);
-                Reminder::create([
-                    'user_id' => $user->id,
-                    'title' => "Upcoming Meeting: {$meeting->title}",
-                    'message' => "Your meeting starts in {$validated['reminder_minutes']} minutes.",
-                    'remindable_type' => Meeting::class,
-                    'remindable_id' => $meeting->id,
-                    'remind_at' => $remindAt,
-                    'channel' => 'in_app',
-                    'status' => 'pending',
-                    'payload' => ['meeting_id' => $meeting->id],
-                ]);
+                app(\App\Services\ReminderEngineService::class)->scheduleMeetingReminders(
+                    $meeting,
+                    (int) $validated['reminder_minutes'],
+                    'both'
+                );
             }
 
             // Audit Trail
@@ -384,6 +377,10 @@ class MeetingController extends Controller
                 'old_values' => $oldValues,
                 'new_values' => $meeting->fresh()->toArray(),
             ]);
+            // Re-sync reminders when meeting time changes
+            if ($oldValues['start_time'] != $meeting->start_time) {
+                app(\App\Services\ReminderEngineService::class)->handleMeetingRescheduled($meeting, Carbon::parse($oldValues['start_time']));
+            }
         });
 
         return redirect()->route('meetings.show', $meeting)->with('success', 'Meeting updated successfully.');
@@ -401,6 +398,9 @@ class MeetingController extends Controller
         }
 
         $meeting->update(['status' => 'cancelled']);
+
+        // Dismiss pending reminders
+        app(\App\Services\ReminderEngineService::class)->handleMeetingCancelled($meeting);
 
         AuditLog::create([
             'user_id' => $user->id,
@@ -423,6 +423,9 @@ class MeetingController extends Controller
         if (!$user->isSuperAdmin() && $meeting->organizer_id !== $user->id) {
             abort(403, 'Unauthorized to delete this meeting.');
         }
+
+        // Dismiss pending reminders
+        app(\App\Services\ReminderEngineService::class)->handleMeetingCancelled($meeting);
 
         $meeting->delete();
 

@@ -6,3 +6,9 @@ use Illuminate\Support\Facades\Artisan;
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+// Execute reminder processor every minute with concurrency lock
+\Illuminate\Support\Facades\Schedule::command('schedio:process-reminders')
+    ->everyMinute()
+    ->withoutOverlapping();
+

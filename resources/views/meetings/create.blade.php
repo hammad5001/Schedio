@@ -118,6 +118,7 @@
                     <label class="block text-xs font-semibold uppercase text-slate-300 mb-1">Pre-Meeting Reminder</label>
                     <select name="reminder_minutes" class="w-full px-3 py-2.5 bg-slate-950/80 border border-slate-700/80 rounded-xl text-slate-100 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                         <option value="0">No In-App Reminder</option>
+                        <option value="5">5 Minutes Before</option>
                         <option value="10">10 Minutes Before</option>
                         <option value="15" selected>15 Minutes Before</option>
                         <option value="30">30 Minutes Before</option>
