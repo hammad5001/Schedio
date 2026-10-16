@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,14 +13,16 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Meeting extends Model
 {
-    use HasFactory, SoftDeletes;
+    use BelongsToTenant, HasFactory, SoftDeletes;
 
     protected $fillable = [
+        'company_id',
         'title',
         'description',
         'organizer_id',
         'department_id',
         'room_id',
+        'client_id',
         'start_time',
         'end_time',
         'timezone',
@@ -49,6 +52,14 @@ class Meeting extends Model
     public function organizer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'organizer_id');
+    }
+
+    /**
+     * Client / Deal company this meeting is held with.
+     */
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(Client::class);
     }
 
     /**
@@ -91,6 +102,14 @@ class Meeting extends Model
     public function tasks(): HasMany
     {
         return $this->hasMany(Task::class);
+    }
+
+    /**
+     * Meeting notes, discussions, decisions, and agendas.
+     */
+    public function notes(): HasMany
+    {
+        return $this->hasMany(MeetingNote::class);
     }
 
     /**

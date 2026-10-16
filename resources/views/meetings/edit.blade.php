@@ -8,9 +8,9 @@
     <div class="flex items-center justify-between">
         <div>
             <h1 class="text-2xl font-bold text-white tracking-tight">Edit Meeting</h1>
-            <p class="text-xs text-slate-400">Update schedule, modify booked meeting rooms or update invited participants.</p>
+            <p class="text-xs text-slate-400">Update schedule, client parameters, or invited team members.</p>
         </div>
-        <a href="{{ route('meetings.show', $meeting) }}" class="text-xs text-slate-400 hover:text-white flex items-center gap-1">
+        <a href="{{ route('meetings.show', $meeting) }}" class="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition-colors">
             &larr; Back to Meeting Details
         </a>
     </div>
@@ -68,84 +68,44 @@
                         <option value="America/New_York" {{ old('timezone', $meeting->timezone) === 'America/New_York' ? 'selected' : '' }}>America/New_York (EST)</option>
                         <option value="America/Chicago" {{ old('timezone', $meeting->timezone) === 'America/Chicago' ? 'selected' : '' }}>America/Chicago (CST)</option>
                         <option value="America/Los_Angeles" {{ old('timezone', $meeting->timezone) === 'America/Los_Angeles' ? 'selected' : '' }}>America/Los_Angeles (PST)</option>
-                        <option value="UTC" {{ old('timezone', $meeting->timezone) === 'UTC' ? 'selected' : '' }}>UTC</option>
                         <option value="Europe/London" {{ old('timezone', $meeting->timezone) === 'Europe/London' ? 'selected' : '' }}>Europe/London (GMT)</option>
+                        <option value="Asia/Dubai" {{ old('timezone', $meeting->timezone) === 'Asia/Dubai' ? 'selected' : '' }}>Asia/Dubai (GST - UAE)</option>
                         <option value="Asia/Karachi" {{ old('timezone', $meeting->timezone) === 'Asia/Karachi' ? 'selected' : '' }}>Asia/Karachi (PKT)</option>
+                        <option value="Asia/Kolkata" {{ old('timezone', $meeting->timezone) === 'Asia/Kolkata' ? 'selected' : '' }}>Asia/Kolkata (IST)</option>
+                        <option value="UTC" {{ old('timezone', $meeting->timezone) === 'UTC' ? 'selected' : '' }}>UTC</option>
                     </select>
                 </div>
             </div>
         </div>
 
-        <!-- Format, Venue & Link -->
+        <!-- Format & Video Link -->
         <div class="space-y-4 pt-4 border-t border-slate-800">
-            <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-400">3. Format & Room Allocation</h3>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-400">3. Video Conference & Platform</h3>
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                     <label class="block text-xs font-semibold uppercase text-slate-300 mb-1">Format</label>
                     <select name="type" x-model="meetingType" class="w-full px-3 py-2.5 bg-slate-950/80 border border-slate-700/80 rounded-xl text-slate-100 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                        <option value="in_person">In Person</option>
+                        <option value="virtual">Virtual Online Call</option>
                         <option value="hybrid">Hybrid</option>
-                        <option value="virtual">Virtual Only</option>
+                        <option value="in_person">In Person</option>
                     </select>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-300 mb-1">Meeting Room / Suite</label>
-                    <select name="room_id" class="w-full px-3 py-2.5 bg-slate-950/80 border border-slate-700/80 rounded-xl text-slate-100 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                        <option value="">-- No Room Reservation --</option>
-                        @foreach ($rooms as $r)
-                            <option value="{{ $r->id }}" {{ old('room_id', $meeting->room_id) == $r->id ? 'selected' : '' }}>
-                                {{ $r->name }} (Cap: {{ $r->capacity }})
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-300 mb-1">Department</label>
-                    <select name="department_id" class="w-full px-3 py-2.5 bg-slate-950/80 border border-slate-700/80 rounded-xl text-slate-100 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                        <option value="">General / All Hands</option>
-                        @foreach ($departments as $d)
-                            <option value="{{ $d->id }}" {{ old('department_id', $meeting->department_id) == $d->id ? 'selected' : '' }}>
-                                {{ $d->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-300 mb-1">Video Meeting URL</label>
+                <div class="sm:col-span-2">
+                    <label class="block text-xs font-semibold uppercase text-slate-300 mb-1">Video Meeting URL (Google Meet / Zoom / Teams)</label>
                     <input type="url" name="meeting_link" value="{{ old('meeting_link', $meeting->meeting_link) }}" placeholder="https://meet.google.com/xyz-abc"
-                        class="w-full px-4 py-2.5 bg-slate-950/80 border border-slate-700/80 rounded-xl text-slate-100 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                </div>
-
-                <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-300 mb-1">Location Notes</label>
-                    <input type="text" name="location" value="{{ old('location', $meeting->location) }}" placeholder="e.g. Boardroom A"
                         class="w-full px-4 py-2.5 bg-slate-950/80 border border-slate-700/80 rounded-xl text-slate-100 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                 </div>
             </div>
         </div>
 
-        <!-- Client Partnership Scope -->
+        <!-- Client Details -->
         <div class="space-y-4 pt-4 border-t border-slate-800">
-            <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-purple-400">4. Client Information (Optional)</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-2xl bg-purple-950/20 border border-purple-800/40">
                 <div>
-                    <h3 class="text-xs font-bold uppercase tracking-wider text-purple-400">4. Client / External Meeting</h3>
-                    <p class="text-xs text-slate-400">Check if this session is with external partners or client executives.</p>
-                </div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" name="is_client_meeting" value="1" x-model="isClientMeeting" class="sr-only peer">
-                    <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                </label>
-            </div>
-
-            <div x-show="isClientMeeting" x-cloak class="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-2xl bg-purple-950/20 border border-purple-800/40">
-                <div>
-                    <label class="block text-xs font-semibold uppercase text-purple-300 mb-1">Client Contact Name</label>
+                    <label class="block text-xs font-semibold uppercase text-purple-300 mb-1">Client Name</label>
                     <input type="text" name="client_name" value="{{ old('client_name', $meeting->metadata['client_name'] ?? '') }}"
                         class="w-full px-3.5 py-2 bg-slate-950/80 border border-purple-700/50 rounded-xl text-slate-100 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none">
                 </div>
@@ -155,7 +115,7 @@
                         class="w-full px-3.5 py-2 bg-slate-950/80 border border-purple-700/50 rounded-xl text-slate-100 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold uppercase text-purple-300 mb-1">Company / Organization</label>
+                    <label class="block text-xs font-semibold uppercase text-purple-300 mb-1">Company / Country</label>
                     <input type="text" name="client_company" value="{{ old('client_company', $meeting->metadata['client_company'] ?? '') }}"
                         class="w-full px-3.5 py-2 bg-slate-950/80 border border-purple-700/50 rounded-xl text-slate-100 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none">
                 </div>

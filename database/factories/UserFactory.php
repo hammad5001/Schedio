@@ -27,8 +27,12 @@ class UserFactory extends Factory
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
-            'password' => static::$password ??= Hash::make('password'),
-            'remember_token' => Str::random(10),
+            'company_id' => \App\Models\Company::first()?->id ?? \App\Models\Company::factory(),
+            'role' => \App\Models\User::ROLE_EMPLOYEE,
+            'approval_status' => \App\Models\User::STATUS_APPROVED,
+            'is_active' => true,
+            'password' => static::$password ??= \Illuminate\Support\Facades\Hash::make('password'),
+            'remember_token' => \Illuminate\Support\Str::random(10),
         ];
     }
 

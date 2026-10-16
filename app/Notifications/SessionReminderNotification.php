@@ -23,6 +23,19 @@ class SessionReminderNotification extends Notification implements ShouldQueue
      */
     public function via(object $notifiable): array
     {
+        if (method_exists($notifiable, 'getNotificationChannelsFor')) {
+            $userChannels = $notifiable->getNotificationChannelsFor('meeting_reminders');
+            $reminderChannel = $this->reminder->channel ?? 'both';
+
+            if ($reminderChannel === 'email') {
+                return in_array('mail', $userChannels, true) ? ['mail'] : [];
+            } elseif ($reminderChannel === 'in_app') {
+                return in_array('database', $userChannels, true) ? ['database'] : [];
+            }
+
+            return $userChannels;
+        }
+
         $channel = $this->reminder->channel ?? 'both';
 
         if ($channel === 'email') {
@@ -31,7 +44,6 @@ class SessionReminderNotification extends Notification implements ShouldQueue
             return ['database'];
         }
 
-        // 'both' or default
         return ['database', 'mail'];
     }
 
@@ -46,7 +58,7 @@ class SessionReminderNotification extends Notification implements ShouldQueue
             ->line($this->reminder->message ?? 'You have an upcoming scheduled session.')
             ->line("Scheduled Time: " . $this->reminder->remind_at->toDayDateTimeString());
 
-        if ($this->reminder->payload && isset($this->reminder->payload['meeting_link'])) {
+        if ($this->reminder->payload && isset($this->reminder->payload['meeting_link']) && $this->reminder->payload['meeting_link']) {
             $mail->action('Join Video Meeting', $this->reminder->payload['meeting_link']);
         } elseif ($this->reminder->payload && isset($this->reminder->payload['meeting_id'])) {
             $mail->action('View Meeting Details', url("/meetings/{$this->reminder->payload['meeting_id']}"));
@@ -64,13 +76,24 @@ class SessionReminderNotification extends Notification implements ShouldQueue
      */
     public function toArray(object $notifiable): array
     {
+        $actionUrl = url('/dashboard');
+        if ($this->reminder->payload && isset($this->reminder->payload['meeting_id'])) {
+            $actionUrl = url("/meetings/{$this->reminder->payload['meeting_id']}");
+        }
+
         return [
+            'category' => 'meeting_reminders',
             'reminder_id' => $this->reminder->id,
             'title' => $this->reminder->title,
             'message' => $this->reminder->message,
             'remind_at' => $this->reminder->remind_at->toIso8601String(),
             'remindable_type' => $this->reminder->remindable_type,
             'remindable_id' => $this->reminder->remindable_id,
+            'meeting_id' => $this->reminder->payload['meeting_id'] ?? null,
+            'action_url' => $actionUrl,
+            'action_text' => 'View Session',
+            'icon' => 'bell',
+            'color' => 'amber',
             'payload' => $this->reminder->payload,
         ];
     }

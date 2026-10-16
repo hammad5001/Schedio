@@ -24,9 +24,9 @@ class DatabaseSchemaAndRelationshipsTest extends TestCase
         $this->seed(DatabaseSeeder::class);
 
         $this->assertDatabaseCount('departments', 3);
-        $this->assertDatabaseCount('users', 6); // 4 approved (super admin, manager, employee, client) + 2 pending
-        $this->assertDatabaseCount('rooms', 3);
-        $this->assertDatabaseCount('meetings', 2);
+        $this->assertDatabaseCount('users', 7); // 6 Schedio HQ users + 1 Apex Global CEO
+        $this->assertDatabaseCount('rooms', 4); // 3 Schedio rooms + 1 Apex room
+        $this->assertDatabaseCount('meetings', 3); // 2 Schedio meetings + 1 Apex meeting
         $this->assertDatabaseCount('meeting_participants', 5);
         $this->assertDatabaseCount('events', 1);
         $this->assertDatabaseCount('tasks', 1);

@@ -3,27 +3,37 @@
 @section('title', 'Sign In')
 
 @section('content')
-<div class="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-    <div class="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <!-- Logo Badge -->
-        <div class="inline-flex items-center justify-center p-3 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-2xl shadow-xl shadow-indigo-500/20 ring-1 ring-white/20 mb-4">
-            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-            </svg>
+<div class="min-h-full flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative z-10" x-data="{
+    fillUser(email, pass) {
+        document.getElementById('email').value = email;
+        document.getElementById('password').value = pass;
+        document.getElementById('loginForm').submit();
+    }
+}">
+    <!-- Brand / Hero Title -->
+    <div class="sm:mx-auto sm:w-full sm:max-w-md text-center space-y-3">
+        <div class="flex justify-center">
+            <x-brand-logo size="xl" :showText="false" class="scale-110" />
         </div>
-        <h1 class="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-            Schedio
-        </h1>
-        <p class="mt-2 text-sm text-slate-400">
-            Enterprise Scheduling & Resource Workspace
-        </p>
+        <div>
+            <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white flex items-center justify-center gap-2">
+                Schedio
+                <span class="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300">ENTERPRISE</span>
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-400 font-medium max-w-sm mx-auto leading-relaxed mt-1.5">
+                Executive Scheduling & Intelligent Meeting Suite
+            </p>
+        </div>
     </div>
 
+    <!-- Main Login Card -->
     <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div class="bg-slate-900/80 backdrop-blur-xl py-8 px-6 shadow-2xl shadow-black/50 rounded-2xl border border-slate-800/80 sm:px-10">
-            
+        <div class="glass-panel py-8 px-6 sm:px-10 rounded-3xl relative overflow-hidden">
+            <!-- Subtle Golden Top Flare -->
+            <div class="absolute -top-12 left-1/2 -translate-x-1/2 w-48 h-20 bg-amber-500/20 rounded-full blur-2xl pointer-events-none"></div>
+
             @if (session('status'))
-                <div class="mb-6 p-4 rounded-xl bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 text-sm flex items-start gap-3">
+                <div class="mb-6 p-4 rounded-2xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-start gap-3">
                     <svg class="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
@@ -32,7 +42,7 @@
             @endif
 
             @if ($errors->any())
-                <div class="mb-6 p-4 rounded-xl bg-rose-950/60 border border-rose-500/30 text-rose-300 text-sm space-y-1">
+                <div class="mb-6 p-4 rounded-2xl bg-rose-950/60 border border-rose-500/40 text-rose-300 text-xs font-medium space-y-1.5">
                     @foreach ($errors->all() as $error)
                         <div class="flex items-start gap-2">
                             <svg class="w-4 h-4 text-rose-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -44,65 +54,78 @@
                 </div>
             @endif
 
-            <form class="space-y-5" action="{{ route('login.post') }}" method="POST">
+            <!-- Fast One-Click Demo Access (Warm Amber Pills) -->
+            <div class="mb-6 pb-6 border-b border-white/[0.08]">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-amber-400/90 mb-2.5 flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                    <span>One-Click Demo Staff Login</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2.5">
+                    <button type="button" @click="fillUser('admin@schedio.com', 'password')"
+                        class="p-2.5 rounded-xl bg-white/[0.04] hover:bg-amber-400/10 border border-white/10 hover:border-amber-400/50 text-left transition-all group cursor-pointer">
+                        <div class="text-xs font-bold text-white group-hover:text-amber-300">Alex Rivera</div>
+                        <div class="text-[10px] text-amber-400 font-semibold">Super Admin &rarr;</div>
+                    </button>
+                    <button type="button" @click="fillUser('sarah.chen@schedio.com', 'password')"
+                        class="p-2.5 rounded-xl bg-white/[0.04] hover:bg-amber-400/10 border border-white/10 hover:border-amber-400/50 text-left transition-all group cursor-pointer">
+                        <div class="text-xs font-bold text-white group-hover:text-amber-300">Sarah Chen</div>
+                        <div class="text-[10px] text-amber-400 font-semibold">Head of Product &rarr;</div>
+                    </button>
+                </div>
+            </div>
+
+            <form id="loginForm" class="space-y-4" action="{{ route('login.post') }}" method="POST">
                 @csrf
 
                 <div>
-                    <label for="email" class="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    <label for="email" class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
                         Work Email Address
                     </label>
-                    <div class="mt-1 relative">
+                    <div class="relative">
                         <input id="email" name="email" type="email" autocomplete="email" required
-                            value="{{ old('email') }}"
-                            placeholder="alex@schedio.com"
-                            class="w-full px-4 py-3 bg-slate-950/60 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm">
+                            value="{{ old('email', 'admin@schedio.com') }}"
+                            placeholder="admin@schedio.com"
+                            class="w-full px-4 py-3 bg-[#111317]/80 border border-white/[0.14] rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition-all text-sm">
                     </div>
                 </div>
 
                 <div>
-                    <label for="password" class="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                    <label for="password" class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
                         Password
                     </label>
-                    <div class="mt-1 relative">
+                    <div class="relative">
                         <input id="password" name="password" type="password" autocomplete="current-password" required
+                            value="password"
                             placeholder="••••••••"
-                            class="w-full px-4 py-3 bg-slate-950/60 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm">
+                            class="w-full px-4 py-3 bg-[#111317]/80 border border-white/[0.14] rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition-all text-sm">
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center">
-                        <input id="remember" name="remember" type="checkbox"
-                            class="h-4 w-4 bg-slate-950 border-slate-700 rounded text-indigo-600 focus:ring-indigo-500 focus:ring-offset-slate-900">
-                        <label for="remember" class="ml-2 block text-xs text-slate-400">
-                            Remember this browser
-                        </label>
-                    </div>
+                <div class="flex items-center justify-between pt-1">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input id="remember" name="remember" type="checkbox" checked
+                            class="h-4 w-4 bg-[#111317] border-white/20 rounded text-amber-500 focus:ring-amber-400">
+                        <span class="text-xs text-slate-400 font-medium">Keep me signed in</span>
+                    </label>
                 </div>
 
-                <div>
+                <div class="pt-2">
                     <button type="submit"
-                        class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-sm font-semibold shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 transition-all cursor-pointer">
-                        Sign In to Workspace
+                        class="btn-amber w-full py-3.5 px-4 rounded-xl text-sm shadow-lg hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer">
+                        <span>Sign In to Workspace</span>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                     </button>
                 </div>
             </form>
 
-            <div class="mt-6 pt-6 border-t border-slate-800 text-center">
+            <div class="mt-6 pt-5 border-t border-white/[0.08] text-center">
                 <p class="text-xs text-slate-400">
                     Need an account?
-                    <a href="{{ route('register') }}" class="font-semibold text-indigo-400 hover:text-indigo-300 transition-colors ml-1">
-                        Submit Registration Request &rarr;
+                    <a href="{{ route('register') }}" class="font-bold text-amber-400 hover:text-amber-300 transition-colors ml-1">
+                        Request Staff Access &rarr;
                     </a>
                 </p>
             </div>
-        </div>
-
-        <!-- Super Admin hint card -->
-        <div class="mt-6 p-4 rounded-xl bg-slate-900/40 border border-slate-800/60 text-center">
-            <p class="text-xs text-slate-400 font-mono">
-                <span class="text-indigo-400 font-semibold">Super Admin:</span> admin@schedio.com &bull; <span class="text-slate-500">password</span>
-            </p>
         </div>
     </div>
 </div>

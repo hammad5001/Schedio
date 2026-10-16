@@ -26,10 +26,9 @@ class CalendarController extends Controller
     {
         $user = Auth::user();
         $departments = Department::where('is_active', true)->orderBy('name')->get();
-        $rooms = Room::where('is_active', true)->orderBy('name')->get();
         $users = User::where('approval_status', User::STATUS_APPROVED)->where('is_active', true)->orderBy('name')->get();
 
-        return view('calendar.index', compact('user', 'departments', 'rooms', 'users'));
+        return view('calendar.index', compact('user', 'departments', 'users'));
     }
 
     /**
@@ -44,7 +43,6 @@ class CalendarController extends Controller
             'end' => ['required', 'string'],
             'type' => ['nullable', 'string'], // all, meetings, events, holidays
             'department_id' => ['nullable', 'string'],
-            'room_id' => ['nullable', 'string'],
             'search' => ['nullable', 'string'],
         ]);
 
@@ -52,14 +50,13 @@ class CalendarController extends Controller
         $end = Carbon::parse($request->input('end'));
         $typeFilter = $request->input('type', 'all');
         $departmentFilter = $request->input('department_id');
-        $roomFilter = $request->input('room_id');
         $search = $request->input('search');
 
         $calendarEvents = [];
 
         // 1. Fetch Meetings
         if ($typeFilter === 'all' || $typeFilter === 'meetings') {
-            $meetingQuery = Meeting::with(['organizer', 'room', 'department', 'participants'])
+            $meetingQuery = Meeting::with(['organizer', 'department', 'participants'])
                 ->where('status', '!=', 'cancelled')
                 ->where(function ($q) use ($start, $end) {
                     $q->whereBetween('start_time', [$start, $end])
@@ -70,11 +67,10 @@ class CalendarController extends Controller
                       });
                 });
 
-            // Visibility / Permissions: Non-super admin can only see public meetings, meetings in their dept, or where they are organizer/participant
+            // Visibility / Permissions: Non-super admin can ONLY see meetings where they are organizer or participant
             if (!$user->isSuperAdmin()) {
                 $meetingQuery->where(function ($q) use ($user) {
-                    $q->where('is_private', false)
-                      ->orWhere('organizer_id', $user->id)
+                    $q->where('organizer_id', $user->id)
                       ->orWhereHas('participants', function ($p) use ($user) {
                           $p->where('users.id', $user->id);
                       });
@@ -83,10 +79,6 @@ class CalendarController extends Controller
 
             if ($departmentFilter) {
                 $meetingQuery->where('department_id', $departmentFilter);
-            }
-
-            if ($roomFilter) {
-                $meetingQuery->where('room_id', $roomFilter);
             }
 
             if ($search) {
@@ -100,7 +92,8 @@ class CalendarController extends Controller
 
             foreach ($meetings as $meeting) {
                 $canEdit = $user->isSuperAdmin() || $meeting->organizer_id === $user->id;
-                $color = $meeting->room ? $meeting->room->color : '#6366f1';
+                $isClient = $meeting->metadata['is_client_meeting'] ?? false;
+                $color = $isClient ? '#a855f7' : '#6366f1';
 
                 $calendarEvents[] = [
                     'id' => 'meeting_' . $meeting->id,
@@ -121,12 +114,11 @@ class CalendarController extends Controller
                         'is_private' => $meeting->is_private,
                         'meeting_link' => $meeting->meeting_link,
                         'location' => $meeting->location,
-                        'room' => $meeting->room ? [
-                            'id' => $meeting->room->id,
-                            'name' => $meeting->room->name,
-                            'location' => $meeting->room->location,
-                            'color' => $meeting->room->color,
-                        ] : null,
+                        'client_name' => $meeting->metadata['client_name'] ?? null,
+                        'client_email' => $meeting->metadata['client_email'] ?? null,
+                        'client_company' => $meeting->metadata['client_company'] ?? null,
+                        'reminder_minutes' => $meeting->metadata['reminder_minutes'] ?? 15,
+                        'room' => null,
                         'organizer' => [
                             'id' => $meeting->organizer->id,
                             'name' => $meeting->organizer->name,
@@ -246,52 +238,50 @@ class CalendarController extends Controller
                 'start_time' => ['required', 'date'],
                 'end_time' => ['required', 'date', 'after:start_time'],
                 'department_id' => ['nullable', 'exists:departments,id'],
-                'room_id' => ['nullable', 'exists:rooms,id'],
-                'type' => ['required', 'string', 'in:in_person,virtual,hybrid'],
+                'type' => ['nullable', 'string', 'in:in_person,virtual,hybrid'],
                 'meeting_link' => ['nullable', 'url', 'max:255'],
                 'location' => ['nullable', 'string', 'max:255'],
                 'is_private' => ['boolean'],
+                'client_name' => ['nullable', 'string', 'max:255'],
+                'client_email' => ['nullable', 'email', 'max:255'],
+                'client_company' => ['nullable', 'string', 'max:255'],
+                'reminder_minutes' => ['nullable', 'integer', 'min:0', 'max:10080'],
                 'participant_ids' => ['nullable', 'array'],
                 'participant_ids.*' => ['exists:users,id'],
             ]);
 
-            // Conflict check for room booking
-            if (!empty($validated['room_id'])) {
-                $startCarbon = Carbon::parse($validated['start_time']);
-                $endCarbon = Carbon::parse($validated['end_time']);
-
-                $conflict = Meeting::where('room_id', $validated['room_id'])
-                    ->where('status', '!=', 'cancelled')
-                    ->where(function ($q) use ($startCarbon, $endCarbon) {
-                        $q->where('start_time', '<', $endCarbon)
-                          ->where('end_time', '>', $startCarbon);
-                    })
-                    ->exists();
-
-                if ($conflict) {
-                    return response()->json([
-                        'message' => 'The selected room is already booked for this time window. Please select another room or time.',
-                        'errors' => ['room_id' => ['Room conflict detected for this time slot.']],
-                    ], 422);
-                }
-            }
-
             $meeting = DB::transaction(function () use ($validated, $user) {
+                $isClient = !empty($validated['client_name']) || !empty($validated['client_email']);
+                $metadata = [
+                    'is_client_meeting' => $isClient,
+                    'client_name' => $validated['client_name'] ?? null,
+                    'client_email' => $validated['client_email'] ?? null,
+                    'client_company' => $validated['client_company'] ?? null,
+                    'reminder_minutes' => $validated['reminder_minutes'] ?? 15,
+                ];
+
                 $meeting = Meeting::create([
                     'title' => $validated['title'],
                     'description' => $validated['description'] ?? null,
                     'organizer_id' => $user->id,
                     'department_id' => $validated['department_id'] ?? $user->department_id,
-                    'room_id' => $validated['room_id'] ?? null,
+                    'room_id' => null,
                     'start_time' => Carbon::parse($validated['start_time']),
                     'end_time' => Carbon::parse($validated['end_time']),
                     'timezone' => $user->timezone ?: 'UTC',
-                    'type' => $validated['type'],
+                    'type' => $validated['type'] ?? 'virtual',
                     'meeting_link' => $validated['meeting_link'] ?? null,
                     'location' => $validated['location'] ?? null,
                     'is_private' => $validated['is_private'] ?? false,
+                    'metadata' => $metadata,
                     'status' => 'scheduled',
                 ]);
+
+                // Create reminder if specified via ReminderEngineService
+                $reminderMinutes = (int)($validated['reminder_minutes'] ?? 15);
+                if ($reminderMinutes > 0) {
+                    app(\App\Services\ReminderEngineService::class)->scheduleMeetingReminders($meeting, $reminderMinutes);
+                }
 
                 // Always attach organizer as host
                 MeetingParticipant::create([
@@ -324,6 +314,9 @@ class CalendarController extends Controller
                     'description' => "Meeting '{$meeting->title}' scheduled by {$user->name}.",
                     'new_values' => $meeting->toArray(),
                 ]);
+
+                // Dispatch Invitations
+                app(\App\Services\NotificationDispatchService::class)->notifyMeetingInvitation($meeting);
 
                 return $meeting;
             });
@@ -398,24 +391,6 @@ class CalendarController extends Controller
                 return response()->json(['message' => 'Unauthorized to modify this meeting.'], 403);
             }
 
-            // Check room conflict
-            if ($meeting->room_id) {
-                $conflict = Meeting::where('room_id', $meeting->room_id)
-                    ->where('id', '!=', $meeting->id)
-                    ->where('status', '!=', 'cancelled')
-                    ->where(function ($q) use ($validated) {
-                        $q->where('start_time', '<', $validated['end_time'])
-                          ->where('end_time', '>', $validated['start_time']);
-                    })
-                    ->exists();
-
-                if ($conflict) {
-                    return response()->json([
-                        'message' => 'Room conflict detected for the new time slot. Meeting cannot be moved here.',
-                    ], 422);
-                }
-            }
-
             $oldTimes = ['start' => $meeting->start_time, 'end' => $meeting->end_time];
 
             $meeting->update([
@@ -432,6 +407,10 @@ class CalendarController extends Controller
                 'old_values' => $oldTimes,
                 'new_values' => ['start' => $meeting->start_time, 'end' => $meeting->end_time],
             ]);
+
+            // Sync reminders & dispatch notifications
+            app(\App\Services\ReminderEngineService::class)->handleMeetingRescheduled($meeting, Carbon::parse($oldTimes['start']));
+            app(\App\Services\NotificationDispatchService::class)->notifyMeetingUpdated($meeting, ['time']);
 
             return response()->json([
                 'success' => true,
@@ -473,6 +452,8 @@ class CalendarController extends Controller
             }
 
             $meeting->update(['status' => 'cancelled']);
+            app(\App\Services\ReminderEngineService::class)->handleMeetingCancelled($meeting);
+            app(\App\Services\NotificationDispatchService::class)->notifyMeetingCancelled($meeting, $user->name);
             $meeting->delete();
 
             AuditLog::create([

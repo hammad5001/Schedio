@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,9 +17,12 @@ use Illuminate\Notifications\Notifiable;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, SoftDeletes;
+    use BelongsToTenant, HasFactory, Notifiable, SoftDeletes;
 
+    public const ROLE_DEVELOPER = 'developer';
     public const ROLE_SUPER_ADMIN = 'super_admin';
+    public const ROLE_BD_MANAGER = 'bd_manager';
+    public const ROLE_BD = 'bd_rep';
     public const ROLE_MANAGER = 'manager';
     public const ROLE_EMPLOYEE = 'employee';
     public const ROLE_CLIENT = 'client';
@@ -33,6 +37,7 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
+        'company_id',
         'name',
         'title',
         'email',
@@ -47,7 +52,13 @@ class User extends Authenticatable
         'registration_notes',
         'avatar_url',
         'timezone',
+        'notification_preferences',
         'is_active',
+        'username',
+        'booking_headline',
+        'booking_bio',
+        'booking_durations',
+        'default_meeting_link',
     ];
 
     /**
@@ -72,7 +83,72 @@ class User extends Authenticatable
             'approved_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'notification_preferences' => 'array',
+            'booking_durations' => 'array',
         ];
+    }
+
+    /**
+     * Default notification preferences configuration.
+     */
+    public static function defaultNotificationPreferences(): array
+    {
+        return [
+            'channels' => [
+                'in_app' => true,
+                'email' => true,
+            ],
+            'categories' => [
+                'meeting_invitations' => ['in_app' => true, 'email' => true],
+                'meeting_reminders' => ['in_app' => true, 'email' => true],
+                'meeting_updates' => ['in_app' => true, 'email' => true],
+                'meeting_cancellations' => ['in_app' => true, 'email' => true],
+                'participant_responses' => ['in_app' => true, 'email' => false],
+                'task_activity' => ['in_app' => true, 'email' => true],
+            ],
+        ];
+    }
+
+    /**
+     * Get resolved notification preferences with fallbacks.
+     */
+    public function getPreferences(): array
+    {
+        $defaults = self::defaultNotificationPreferences();
+        $userPrefs = $this->notification_preferences ?? [];
+
+        return [
+            'channels' => array_merge($defaults['channels'], $userPrefs['channels'] ?? []),
+            'categories' => array_replace_recursive($defaults['categories'], $userPrefs['categories'] ?? []),
+        ];
+    }
+
+    /**
+     * Determine channels for a specific category based on preferences.
+     *
+     * @param string $category
+     * @return array<string>
+     */
+    public function getNotificationChannelsFor(string $category): array
+    {
+        $prefs = $this->getPreferences();
+        $channels = [];
+
+        // Global master switches
+        $inAppGlobal = $prefs['channels']['in_app'] ?? true;
+        $emailGlobal = $prefs['channels']['email'] ?? true;
+
+        $categoryConfig = $prefs['categories'][$category] ?? ['in_app' => true, 'email' => true];
+
+        if ($inAppGlobal && ($categoryConfig['in_app'] ?? true)) {
+            $channels[] = 'database';
+        }
+
+        if ($emailGlobal && ($categoryConfig['email'] ?? true)) {
+            $channels[] = 'mail';
+        }
+
+        return $channels;
     }
 
     /**
@@ -94,14 +170,42 @@ class User extends Authenticatable
     /**
      * Status & Role check helpers.
      */
-    public function isSuperAdmin(): bool
+    public function isDeveloper(): bool
+    {
+        return $this->role === self::ROLE_DEVELOPER;
+    }
+
+    public function isCompanySuperAdmin(): bool
     {
         return $this->role === self::ROLE_SUPER_ADMIN;
     }
 
+    public function isSuperAdmin(): bool
+    {
+        return in_array($this->role, [self::ROLE_DEVELOPER, self::ROLE_SUPER_ADMIN], true);
+    }
+
     public function isManager(): bool
     {
-        return in_array($this->role, [self::ROLE_SUPER_ADMIN, self::ROLE_MANAGER], true);
+        return in_array($this->role, [self::ROLE_DEVELOPER, self::ROLE_SUPER_ADMIN, self::ROLE_MANAGER, self::ROLE_BD_MANAGER], true);
+    }
+
+    public function isBD(): bool
+    {
+        return in_array($this->role, [self::ROLE_DEVELOPER, self::ROLE_SUPER_ADMIN, self::ROLE_BD_MANAGER, self::ROLE_BD], true);
+    }
+
+    public function getRoleLabelAttribute(): string
+    {
+        return match ($this->role) {
+            self::ROLE_DEVELOPER => 'Platform Developer',
+            self::ROLE_SUPER_ADMIN => 'Company Super Admin (CEO)',
+            self::ROLE_BD_MANAGER => 'BD Lead / Sales Manager',
+            self::ROLE_BD => 'Business Developer (BD Rep)',
+            self::ROLE_MANAGER => 'Department Manager',
+            self::ROLE_CLIENT => 'Client / Partner',
+            default => 'Team Member',
+        };
     }
 
     public function isApproved(): bool
@@ -114,6 +218,14 @@ class User extends Authenticatable
         return $this->approval_status === self::STATUS_PENDING;
     }
 
+    /**
+     * Retrieve the model for a bound value without tenant scoping so authorization controllers can verify ownership and return 403.
+     */
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return $this->withoutGlobalScopes()->where($field ?? $this->getRouteKeyName(), $value)->first();
+    }
+
     public function isRejected(): bool
     {
         return $this->approval_status === self::STATUS_REJECTED;
@@ -121,7 +233,34 @@ class User extends Authenticatable
 
     public function canLogin(): bool
     {
-        return $this->is_active && ($this->isSuperAdmin() || $this->isApproved());
+        if (! $this->is_active) {
+            return false;
+        }
+
+        // Platform Developer can always log in
+        if ($this->isDeveloper()) {
+            return true;
+        }
+
+        // Must be approved by Developer (for Super Admin) or by Company Super Admin (for staff)
+        if (! $this->isApproved()) {
+            return false;
+        }
+
+        // If user belongs to a company, company must be active
+        if ($this->company_id && $this->company && ! $this->company->isActive()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Company relationship.
+     */
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
     }
 
     /**
@@ -204,5 +343,21 @@ class User extends Authenticatable
     public function auditLogs(): HasMany
     {
         return $this->hasMany(AuditLog::class);
+    }
+
+    /**
+     * Get booking durations offered by user.
+     */
+    public function getBookingDurations(): array
+    {
+        return !empty($this->booking_durations) ? $this->booking_durations : [15, 30, 45, 60];
+    }
+
+    /**
+     * Get public booking URL for this user.
+     */
+    public function getPublicBookingUrl(): string
+    {
+        return route('booking.show', ['username' => $this->username ?: $this->id]);
     }
 }

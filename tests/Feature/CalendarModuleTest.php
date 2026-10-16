@@ -62,7 +62,6 @@ class CalendarModuleTest extends TestCase
     public function test_user_can_schedule_meeting_via_calendar_api(): void
     {
         $superAdmin = User::where('email', 'admin@schedio.com')->first();
-        $room = Room::first();
         $dept = Department::first();
 
         $startTime = Carbon::now()->addDays(4)->setTime(11, 0, 0)->toIso8601String();
@@ -74,10 +73,9 @@ class CalendarModuleTest extends TestCase
             'description' => 'Review AWS multi-region cluster deploy.',
             'start_time' => $startTime,
             'end_time' => $endTime,
-            'room_id' => $room->id,
             'department_id' => $dept->id,
-            'type' => 'hybrid',
-            'meeting_link' => 'https://meet.schedio.com/devops-sync',
+            'type' => 'virtual',
+            'meeting_link' => 'https://meet.google.com/devops-sync',
         ]);
 
         $response->assertStatus(200);
@@ -85,42 +83,26 @@ class CalendarModuleTest extends TestCase
 
         $this->assertDatabaseHas('meetings', [
             'title' => 'DevOps Cloud Migration Sync',
-            'room_id' => $room->id,
             'organizer_id' => $superAdmin->id,
         ]);
     }
 
-    public function test_room_conflict_prevents_double_booking(): void
+    public function test_meeting_validation_requires_end_time_after_start_time(): void
     {
         $superAdmin = User::where('email', 'admin@schedio.com')->first();
-        $room = Room::first();
+        $startTime = Carbon::now()->addDays(8)->setTime(14, 0, 0)->toIso8601String();
+        $invalidEndTime = Carbon::now()->addDays(8)->setTime(13, 0, 0)->toIso8601String();
 
-        $startTime = Carbon::now()->addDays(8)->setTime(14, 0, 0);
-        $endTime = Carbon::now()->addDays(8)->setTime(15, 0, 0);
-
-        // First booking
-        Meeting::create([
-            'title' => 'Existing Room Reservation',
-            'organizer_id' => $superAdmin->id,
-            'room_id' => $room->id,
-            'start_time' => $startTime,
-            'end_time' => $endTime,
-            'status' => 'scheduled',
-            'type' => 'in_person',
-        ]);
-
-        // Attempt overlapping booking
         $response = $this->actingAs($superAdmin)->postJson(route('calendar.store'), [
             'entity_type' => 'meeting',
-            'title' => 'Conflicting Reservation Attempt',
-            'start_time' => $startTime->copy()->addMinutes(15)->toIso8601String(),
-            'end_time' => $endTime->copy()->addMinutes(15)->toIso8601String(),
-            'room_id' => $room->id,
-            'type' => 'in_person',
+            'title' => 'Invalid Time Meeting',
+            'start_time' => $startTime,
+            'end_time' => $invalidEndTime,
+            'type' => 'virtual',
         ]);
 
         $response->assertStatus(422);
-        $response->assertJsonValidationErrors(['room_id']);
+        $response->assertJsonValidationErrors(['end_time']);
     }
 
     public function test_user_can_drag_and_drop_reschedule_meeting(): void

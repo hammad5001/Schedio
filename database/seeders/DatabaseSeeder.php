@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\AuditLog;
+use App\Models\Company;
 use App\Models\Department;
 use App\Models\Event;
 use App\Models\Meeting;
@@ -22,8 +23,17 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // 0. Seed Primary Tenant Company (Schedio HQ)
+        $primaryCompany = Company::create([
+            'name' => 'Schedio Technologies HQ',
+            'slug' => 'schedio-hq',
+            'status' => Company::STATUS_ACTIVE,
+            'domain' => 'schedio.com',
+        ]);
+
         // 1. Seed Core Departments
         $engineering = Department::create([
+            'company_id' => $primaryCompany->id,
             'name' => 'Engineering & Technology',
             'code' => 'ENG',
             'description' => 'Software engineering, DevOps, and cloud infrastructure architecture.',
@@ -31,6 +41,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $product = Department::create([
+            'company_id' => $primaryCompany->id,
             'name' => 'Product & Design',
             'code' => 'PROD',
             'description' => 'Product strategy, UX/UI design systems, and user research.',
@@ -38,21 +49,23 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $clientOps = Department::create([
+            'company_id' => $primaryCompany->id,
             'name' => 'Client Success & Operations',
             'code' => 'OPS',
             'description' => 'Account management, external client relationships, and business operations.',
             'is_active' => true,
         ]);
 
-        // 2. Seed Super Admin & Core Users
+        // 2. Seed Developer (Platform Master Admin) & Core Users
         $superAdmin = User::create([
+            'company_id' => $primaryCompany->id,
             'name' => 'Alex Rivera',
-            'title' => 'Chief Technology Officer & Super Admin',
+            'title' => 'Chief Technology Officer & Platform Developer',
             'email' => 'admin@schedio.com',
             'phone' => '+1 (555) 019-2834',
             'password' => Hash::make('password'),
             'department_id' => $engineering->id,
-            'role' => User::ROLE_SUPER_ADMIN,
+            'role' => User::ROLE_DEVELOPER,
             'approval_status' => User::STATUS_APPROVED,
             'approved_at' => now(),
             'timezone' => 'America/New_York',
@@ -61,6 +74,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $manager = User::create([
+            'company_id' => $primaryCompany->id,
             'name' => 'Sarah Chen',
             'title' => 'Head of Product',
             'email' => 'sarah.chen@schedio.com',
@@ -77,6 +91,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $employee1 = User::create([
+            'company_id' => $primaryCompany->id,
             'name' => 'Marcus Vance',
             'title' => 'Senior Systems Engineer',
             'email' => 'marcus.v@schedio.com',
@@ -93,6 +108,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $clientUser = User::create([
+            'company_id' => $primaryCompany->id,
             'name' => 'David Sterling',
             'title' => 'Partner / Enterprise Lead (Acme Corp)',
             'email' => 'david.sterling@acme.com',
@@ -110,6 +126,7 @@ class DatabaseSeeder extends Seeder
 
         // Seed Pending Registration Requests
         $pendingUser1 = User::create([
+            'company_id' => $primaryCompany->id,
             'name' => 'Sophia Lin',
             'title' => 'Frontend UI Engineer',
             'email' => 'sophia.lin@schedio.com',
@@ -124,6 +141,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $pendingUser2 = User::create([
+            'company_id' => $primaryCompany->id,
             'name' => 'Jessica Taylor',
             'title' => 'Procurement Director (Initech Global)',
             'email' => 'jessica.t@initech.com',
@@ -144,6 +162,7 @@ class DatabaseSeeder extends Seeder
 
         // 3. Seed Meeting Rooms
         $boardroom = Room::create([
+            'company_id' => $primaryCompany->id,
             'name' => 'Apollo Executive Boardroom',
             'code' => 'ROOM-APOLLO',
             'location' => 'Floor 4, East Wing',
@@ -154,6 +173,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $focusRoom = Room::create([
+            'company_id' => $primaryCompany->id,
             'name' => 'Orion Focus Pod',
             'code' => 'ROOM-ORION',
             'location' => 'Floor 3, West Wing',
@@ -164,6 +184,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $clientLounge = Room::create([
+            'company_id' => $primaryCompany->id,
             'name' => 'Nova Client Suite',
             'code' => 'ROOM-NOVA',
             'location' => 'Floor 2, VIP Reception',
@@ -175,6 +196,7 @@ class DatabaseSeeder extends Seeder
 
         // 4. Seed Meetings (Internal and External/Client)
         $internalMeeting = Meeting::create([
+            'company_id' => $primaryCompany->id,
             'title' => 'Q4 Sprint Planning & Architecture Review',
             'description' => 'Review technical roadmap, microservice decoupling milestones, and PostgreSQL index optimizations.',
             'organizer_id' => $superAdmin->id,
@@ -192,6 +214,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $clientMeeting = Meeting::create([
+            'company_id' => $primaryCompany->id,
             'title' => 'Acme Corp — Q4 Enterprise Architecture & SLA Review',
             'description' => 'Joint quarterly business review with David Sterling regarding enterprise uptime and roadmap delivery.',
             'organizer_id' => $superAdmin->id,
@@ -256,6 +279,7 @@ class DatabaseSeeder extends Seeder
 
         // 6. Seed Events
         Event::create([
+            'company_id' => $primaryCompany->id,
             'title' => 'Annual Schedio Engineering Summit',
             'description' => 'Company-wide tech conference and product showcase.',
             'user_id' => $superAdmin->id,
@@ -271,6 +295,7 @@ class DatabaseSeeder extends Seeder
 
         // 7. Seed Tasks
         $task1 = Task::create([
+            'company_id' => $primaryCompany->id,
             'title' => 'Verify PostgreSQL Multi-Tenant Partitioning Performance',
             'description' => 'Run stress tests and review query execution plans on indexed tables.',
             'assigned_to' => $employee1->id,
@@ -297,17 +322,19 @@ class DatabaseSeeder extends Seeder
 
         // 9. Seed Audit Logs
         AuditLog::create([
+            'company_id' => $primaryCompany->id,
             'user_id' => $superAdmin->id,
             'action' => 'login',
             'auditable_type' => User::class,
             'auditable_id' => $superAdmin->id,
-            'description' => 'Super Admin Alex Rivera authenticated from primary workstation.',
+            'description' => 'Platform Developer Alex Rivera authenticated from primary workstation.',
             'ip_address' => '127.0.0.1',
             'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Schedio/1.0',
-            'metadata' => ['role' => 'super_admin'],
+            'metadata' => ['role' => 'developer'],
         ]);
 
         AuditLog::create([
+            'company_id' => $primaryCompany->id,
             'user_id' => null,
             'action' => 'registration_requested',
             'auditable_type' => User::class,
@@ -316,6 +343,56 @@ class DatabaseSeeder extends Seeder
             'ip_address' => '127.0.0.1',
             'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
             'new_values' => ['name' => $pendingUser1->name, 'email' => $pendingUser1->email],
+        ]);
+
+        // 10. Seed Second Company: Apex Global Logistics (For Tenant Isolation)
+        $apexCompany = Company::create([
+            'name' => 'Apex Global Logistics',
+            'slug' => 'apex-global',
+            'status' => Company::STATUS_ACTIVE,
+            'domain' => 'apexlogistics.com',
+        ]);
+
+        $apexCeo = User::create([
+            'company_id' => $apexCompany->id,
+            'name' => 'Elena Rostova',
+            'title' => 'Chief Executive Officer (Apex Global)',
+            'email' => 'ceo@apexlogistics.com',
+            'phone' => '+1 (555) 044-9988',
+            'password' => Hash::make('password'),
+            'role' => User::ROLE_SUPER_ADMIN,
+            'approval_status' => User::STATUS_APPROVED,
+            'approved_at' => now(),
+            'approved_by' => $superAdmin->id,
+            'timezone' => 'America/Chicago',
+            'is_active' => true,
+            'email_verified_at' => now(),
+        ]);
+
+        $apexRoom = Room::create([
+            'company_id' => $apexCompany->id,
+            'name' => 'Apex Executive Summit Suite',
+            'code' => 'ROOM-APEX-1',
+            'location' => 'Tower B, Floor 14',
+            'capacity' => 20,
+            'amenities' => ['Video Wall', 'Executive Board Table'],
+            'color' => '#f59e0b',
+            'is_active' => true,
+        ]);
+
+        Meeting::create([
+            'company_id' => $apexCompany->id,
+            'title' => 'Apex Q4 Confidential Supply Chain Meeting',
+            'description' => 'Strictly confidential internal logistics planning for Apex Global.',
+            'organizer_id' => $apexCeo->id,
+            'room_id' => $apexRoom->id,
+            'start_time' => Carbon::now()->addDays(2)->setTime(13, 0, 0),
+            'end_time' => Carbon::now()->addDays(2)->setTime(14, 30, 0),
+            'timezone' => 'America/Chicago',
+            'status' => 'scheduled',
+            'type' => 'in_person',
+            'location' => 'Apex Executive Summit Suite',
+            'is_private' => true,
         ]);
     }
 }

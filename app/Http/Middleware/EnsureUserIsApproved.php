@@ -23,8 +23,8 @@ class EnsureUserIsApproved
             return redirect()->route('login');
         }
 
-        // Super admin always bypasses approval requirement
-        if ($user->isSuperAdmin()) {
+        // Platform Developer always has access
+        if ($user->isDeveloper()) {
             return $next($request);
         }
 
@@ -34,13 +34,26 @@ class EnsureUserIsApproved
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            $message = $user->isPending()
-                ? 'Your registration request is currently pending Super Admin review.'
-                : ($user->isRejected()
-                    ? 'Your registration request was rejected' . ($user->rejection_reason ? ': ' . $user->rejection_reason : '.')
-                    : 'Your account is currently inactive. Please contact your Super Administrator.');
+            $message = $user->isCompanySuperAdmin()
+                ? 'Your company Super Admin registration is currently pending Developer approval.'
+                : ($user->isPending()
+                    ? 'Your registration request is currently pending review.'
+                    : ($user->isRejected()
+                        ? 'Your registration request was rejected' . ($user->rejection_reason ? ': ' . $user->rejection_reason : '.')
+                        : 'Your account is currently inactive. Please contact the administrator.'));
 
             return redirect()->route('login')->withErrors(['email' => $message]);
+        }
+
+        // If user belongs to a company, ensure the company is active
+        if ($user->company_id && $user->company && ! $user->company->isActive()) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->route('login')->withErrors([
+                'email' => 'Your company workspace is currently ' . $user->company->status . '. Please contact the platform developer.',
+            ]);
         }
 
         return $next($request);

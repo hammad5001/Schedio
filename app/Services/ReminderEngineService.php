@@ -72,10 +72,13 @@ class ReminderEngineService
                 ->exists();
 
             if (!$exists) {
+                $clientInfo = !empty($meeting->metadata['client_name']) ? " with {$meeting->metadata['client_name']}" : '';
+                $linkInfo = $meeting->meeting_link ? " Join link: {$meeting->meeting_link}" : '';
+
                 $reminder = Reminder::create([
                     'user_id' => $userId,
-                    'title' => "Upcoming: {$meeting->title}",
-                    'message' => "Your meeting is scheduled to start at {$meeting->start_time->format('h:i A')} ({$minutesBefore} minutes from now).",
+                    'title' => "Upcoming Call: {$meeting->title}",
+                    'message' => "Your meeting '{$meeting->title}'{$clientInfo} starts at {$meeting->start_time->format('h:i A')} ({$minutesBefore} minutes from now).{$linkInfo}",
                     'remindable_type' => Meeting::class,
                     'remindable_id' => $meeting->id,
                     'remind_at' => $remindAt,
@@ -85,7 +88,7 @@ class ReminderEngineService
                         'meeting_id' => $meeting->id,
                         'meeting_link' => $meeting->meeting_link,
                         'minutes_before' => $minutesBefore,
-                        'room' => $meeting->room ? $meeting->room->name : null,
+                        'client_name' => $meeting->metadata['client_name'] ?? null,
                     ],
                 ]);
 

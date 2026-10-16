@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
+use App\Models\Client;
 use App\Models\Department;
 use App\Models\Meeting;
 use App\Models\MeetingParticipant;
@@ -28,16 +29,14 @@ class MeetingController extends Controller
         $scope = $request->query('scope', 'all'); // all, internal, external, organized_by_me
         $search = $request->query('search');
         $departmentId = $request->query('department_id');
-        $roomId = $request->query('room_id');
 
-        $query = Meeting::with(['organizer', 'department', 'room', 'participants'])
+        $query = Meeting::with(['organizer', 'department', 'participants'])
             ->latest('start_time');
 
-        // Permission & Visibility filtering
+        // Permission & Visibility filtering: Strict isolation for regular users
         if (!$user->isSuperAdmin()) {
             $query->where(function ($q) use ($user) {
-                $q->where('is_private', false)
-                  ->orWhere('organizer_id', $user->id)
+                $q->where('organizer_id', $user->id)
                   ->orWhereHas('participants', fn($p) => $p->where('users.id', $user->id));
             });
         }
@@ -64,11 +63,6 @@ class MeetingController extends Controller
             $query->where('department_id', $departmentId);
         }
 
-        // Room Filter
-        if ($roomId) {
-            $query->where('room_id', $roomId);
-        }
-
         // Search Query
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -81,7 +75,6 @@ class MeetingController extends Controller
         $meetings = $query->paginate(10)->withQueryString();
 
         $departments = Department::where('is_active', true)->orderBy('name')->get();
-        $rooms = Room::where('is_active', true)->orderBy('name')->get();
 
         $counts = [
             'all' => Meeting::count(),
@@ -90,7 +83,7 @@ class MeetingController extends Controller
             'cancelled' => Meeting::where('status', 'cancelled')->count(),
         ];
 
-        return view('meetings.index', compact('meetings', 'departments', 'rooms', 'counts', 'status', 'scope', 'search'));
+        return view('meetings.index', compact('meetings', 'departments', 'counts', 'status', 'scope', 'search'));
     }
 
     /**
@@ -100,10 +93,10 @@ class MeetingController extends Controller
     {
         $user = Auth::user();
         $departments = Department::where('is_active', true)->orderBy('name')->get();
-        $rooms = Room::where('is_active', true)->orderBy('name')->get();
         $users = User::where('approval_status', User::STATUS_APPROVED)->where('is_active', true)->orderBy('name')->get();
+        $clients = Client::orderBy('company_name')->get();
 
-        return view('meetings.create', compact('departments', 'rooms', 'users', 'user'));
+        return view('meetings.create', compact('departments', 'users', 'user', 'clients'));
     }
 
     /**
@@ -120,7 +113,7 @@ class MeetingController extends Controller
             'end_time' => ['required', 'date', 'after:start_time'],
             'timezone' => ['required', 'string', 'max:50'],
             'department_id' => ['nullable', 'exists:departments,id'],
-            'room_id' => ['nullable', 'exists:rooms,id'],
+            'client_id' => ['nullable', 'exists:clients,id'],
             'type' => ['required', 'string', 'in:in_person,virtual,hybrid'],
             'meeting_link' => ['nullable', 'url', 'max:255'],
             'location' => ['nullable', 'string', 'max:255'],
@@ -138,24 +131,7 @@ class MeetingController extends Controller
         $startTime = Carbon::parse($validated['start_time']);
         $endTime = Carbon::parse($validated['end_time']);
 
-        // Check Room Conflict
-        if (!empty($validated['room_id'])) {
-            $conflict = Meeting::where('room_id', $validated['room_id'])
-                ->where('status', '!=', 'cancelled')
-                ->where(function ($q) use ($startTime, $endTime) {
-                    $q->where('start_time', '<', $endTime)
-                      ->where('end_time', '>', $startTime);
-                })
-                ->exists();
-
-            if ($conflict) {
-                return back()->withInput()->withErrors([
-                    'room_id' => 'The selected room is already booked for this time slot. Please pick another room or adjust the time.',
-                ]);
-            }
-        }
-
-        $meeting = DB::transaction(function () use ($validated, $user, $startTime, $endTime) {
+        $meeting = DB::transaction(function () use ($validated, $user, $request, $startTime, $endTime) {
             $metadata = [];
             if (!empty($validated['is_client_meeting'])) {
                 $metadata['is_client_meeting'] = true;
@@ -177,7 +153,8 @@ class MeetingController extends Controller
                 'description' => $validated['description'] ?? null,
                 'organizer_id' => $user->id,
                 'department_id' => $validated['department_id'] ?? $user->department_id,
-                'room_id' => $validated['room_id'] ?? null,
+                'client_id' => $validated['client_id'] ?? null,
+                'room_id' => null,
                 'start_time' => $startTime,
                 'end_time' => $endTime,
                 'timezone' => $validated['timezone'] ?? 'UTC',
@@ -189,6 +166,30 @@ class MeetingController extends Controller
                 'recurrence' => $recurrence,
                 'metadata' => $metadata ?: null,
             ]);
+
+            // If a client was linked and was in Discovery, auto advance to Scheduled
+            if (!empty($validated['client_id'])) {
+                $client = Client::find($validated['client_id']);
+                if ($client && $client->status === Client::STATUS_DISCOVERY) {
+                    $client->update([
+                        'status' => Client::STATUS_SCHEDULED,
+                        'last_activity_at' => now(),
+                    ]);
+                }
+            } elseif (!empty($request->boolean('save_as_client')) && !empty($validated['client_company'])) {
+                $newClient = Client::create([
+                    'company_name' => $validated['client_company'],
+                    'contact_name' => $validated['client_name'] ?? $validated['client_company'],
+                    'contact_email' => $validated['client_email'] ?? null,
+                    'campaign' => $request->input('campaign') ?? 'Direct Outreach',
+                    'progress' => "Meeting scheduled for {$startTime->format('M d, Y h:i A')}.",
+                    'status' => Client::STATUS_SCHEDULED,
+                    'created_by' => $user->id,
+                    'assigned_to' => $user->id,
+                    'last_activity_at' => now(),
+                ]);
+                $meeting->update(['client_id' => $newClient->id]);
+            }
 
             // Add Host
             MeetingParticipant::create([
@@ -222,6 +223,9 @@ class MeetingController extends Controller
                 );
             }
 
+            // Dispatch In-App / Email Meeting Invitations to Participants
+            app(\App\Services\NotificationDispatchService::class)->notifyMeetingInvitation($meeting);
+
             // Audit Trail
             AuditLog::create([
                 'user_id' => $user->id,
@@ -245,15 +249,24 @@ class MeetingController extends Controller
     {
         $user = Auth::user();
 
-        // Permission check
-        if (!$user->isSuperAdmin() && $meeting->is_private) {
+        // Permission check: Strict isolation (only organizer or participant, unless Developer)
+        if (!$user->isSuperAdmin()) {
             $isParticipant = $meeting->participants()->where('users.id', $user->id)->exists();
             if ($meeting->organizer_id !== $user->id && !$isParticipant) {
-                abort(403, 'Unauthorized access to private meeting.');
+                abort(403, 'Unauthorized access to this meeting.');
             }
         }
 
-        $meeting->load(['organizer', 'department', 'room', 'participants', 'tasks.assignee', 'reminders', 'auditLogs.user']);
+        $meeting->load([
+            'organizer',
+            'department',
+            'participants',
+            'tasks.assignee',
+            'tasks.creator',
+            'notes.author',
+            'reminders',
+            'auditLogs.user',
+        ]);
 
         $canManage = $user->isSuperAdmin() || $meeting->organizer_id === $user->id;
 
@@ -272,12 +285,11 @@ class MeetingController extends Controller
         }
 
         $departments = Department::where('is_active', true)->orderBy('name')->get();
-        $rooms = Room::where('is_active', true)->orderBy('name')->get();
         $users = User::where('approval_status', User::STATUS_APPROVED)->where('is_active', true)->orderBy('name')->get();
 
         $selectedParticipants = $meeting->participants()->pluck('users.id')->toArray();
 
-        return view('meetings.edit', compact('meeting', 'departments', 'rooms', 'users', 'selectedParticipants'));
+        return view('meetings.edit', compact('meeting', 'departments', 'users', 'selectedParticipants'));
     }
 
     /**
@@ -298,7 +310,6 @@ class MeetingController extends Controller
             'end_time' => ['required', 'date', 'after:start_time'],
             'timezone' => ['required', 'string', 'max:50'],
             'department_id' => ['nullable', 'exists:departments,id'],
-            'room_id' => ['nullable', 'exists:rooms,id'],
             'type' => ['required', 'string', 'in:in_person,virtual,hybrid'],
             'meeting_link' => ['nullable', 'url', 'max:255'],
             'location' => ['nullable', 'string', 'max:255'],
@@ -313,24 +324,6 @@ class MeetingController extends Controller
 
         $startTime = Carbon::parse($validated['start_time']);
         $endTime = Carbon::parse($validated['end_time']);
-
-        // Check Room Conflict (excluding current meeting)
-        if (!empty($validated['room_id'])) {
-            $conflict = Meeting::where('room_id', $validated['room_id'])
-                ->where('id', '!=', $meeting->id)
-                ->where('status', '!=', 'cancelled')
-                ->where(function ($q) use ($startTime, $endTime) {
-                    $q->where('start_time', '<', $endTime)
-                      ->where('end_time', '>', $startTime);
-                })
-                ->exists();
-
-            if ($conflict) {
-                return back()->withInput()->withErrors([
-                    'room_id' => 'The selected room is already reserved for this time. Please select another room or adjust times.',
-                ]);
-            }
-        }
 
         DB::transaction(function () use ($meeting, $validated, $user, $startTime, $endTime) {
             $metadata = $meeting->metadata ?? [];
@@ -349,7 +342,7 @@ class MeetingController extends Controller
                 'title' => $validated['title'],
                 'description' => $validated['description'] ?? null,
                 'department_id' => $validated['department_id'] ?? null,
-                'room_id' => $validated['room_id'] ?? null,
+                'room_id' => null,
                 'start_time' => $startTime,
                 'end_time' => $endTime,
                 'timezone' => $validated['timezone'],
@@ -381,6 +374,15 @@ class MeetingController extends Controller
             if ($oldValues['start_time'] != $meeting->start_time) {
                 app(\App\Services\ReminderEngineService::class)->handleMeetingRescheduled($meeting, Carbon::parse($oldValues['start_time']));
             }
+
+            // Identify changed fields
+            $changed = [];
+            if ($oldValues['title'] !== $meeting->title) $changed[] = 'title';
+            if ($oldValues['start_time'] != $meeting->start_time) $changed[] = 'start time';
+            if ($oldValues['room_id'] !== $meeting->room_id) $changed[] = 'room location';
+            if ($oldValues['meeting_link'] !== $meeting->meeting_link) $changed[] = 'meeting link';
+
+            app(\App\Services\NotificationDispatchService::class)->notifyMeetingUpdated($meeting, $changed);
         });
 
         return redirect()->route('meetings.show', $meeting)->with('success', 'Meeting updated successfully.');
@@ -401,6 +403,9 @@ class MeetingController extends Controller
 
         // Dismiss pending reminders
         app(\App\Services\ReminderEngineService::class)->handleMeetingCancelled($meeting);
+
+        // Notify participants
+        app(\App\Services\NotificationDispatchService::class)->notifyMeetingCancelled($meeting, $user->name);
 
         AuditLog::create([
             'user_id' => $user->id,
@@ -426,6 +431,9 @@ class MeetingController extends Controller
 
         // Dismiss pending reminders
         app(\App\Services\ReminderEngineService::class)->handleMeetingCancelled($meeting);
+
+        // Notify participants
+        app(\App\Services\NotificationDispatchService::class)->notifyMeetingCancelled($meeting, $user->name);
 
         $meeting->delete();
 
@@ -472,6 +480,14 @@ class MeetingController extends Controller
                 'responded_at' => now(),
             ]);
         }
+
+        // Notify Meeting Organizer of the RSVP response
+        app(\App\Services\NotificationDispatchService::class)->notifyParticipantResponse(
+            $meeting,
+            $user,
+            $validated['status'],
+            $validated['response_notes'] ?? null
+        );
 
         return back()->with('success', 'Your RSVP response has been recorded.');
     }

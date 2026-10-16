@@ -35,7 +35,6 @@ class MeetingManagementModuleTest extends TestCase
     public function test_user_can_create_internal_meeting_with_reminder(): void
     {
         $superAdmin = User::where('email', 'admin@schedio.com')->first();
-        $room = Room::first();
         $dept = Department::first();
         $employee = User::where('email', 'marcus.v@schedio.com')->first();
 
@@ -49,9 +48,8 @@ class MeetingManagementModuleTest extends TestCase
             'end_time' => $end->format('Y-m-d\TH:i'),
             'timezone' => 'America/New_York',
             'department_id' => $dept->id,
-            'room_id' => $room->id,
-            'type' => 'hybrid',
-            'meeting_link' => 'https://meet.schedio.com/infra-audit',
+            'type' => 'virtual',
+            'meeting_link' => 'https://meet.google.com/infra-audit',
             'reminder_minutes' => 15,
             'participant_ids' => [$employee->id],
         ]);
@@ -60,7 +58,7 @@ class MeetingManagementModuleTest extends TestCase
         $this->assertNotNull($meeting);
         $response->assertRedirect(route('meetings.show', $meeting));
 
-        $this->assertEquals($room->id, $meeting->room_id);
+        $this->assertNull($meeting->room_id);
         $this->assertEquals($superAdmin->id, $meeting->organizer_id);
         $this->assertTrue($meeting->participants()->where('users.id', $employee->id)->exists());
 
@@ -101,35 +99,23 @@ class MeetingManagementModuleTest extends TestCase
         $this->assertEquals('biweekly', $meeting->recurrence['frequency']);
     }
 
-    public function test_room_conflict_validation_on_meeting_creation(): void
+    public function test_meeting_creation_validation_requires_end_time_after_start_time(): void
     {
         $superAdmin = User::where('email', 'admin@schedio.com')->first();
-        $room = Room::first();
 
         $start = Carbon::now()->addDays(6)->setTime(14, 0, 0);
-        $end = Carbon::now()->addDays(6)->setTime(15, 0, 0);
-
-        Meeting::create([
-            'title' => 'Locked Room Session',
-            'organizer_id' => $superAdmin->id,
-            'room_id' => $room->id,
-            'start_time' => $start,
-            'end_time' => $end,
-            'status' => 'scheduled',
-            'type' => 'in_person',
-        ]);
+        $invalidEnd = Carbon::now()->addDays(6)->setTime(13, 0, 0);
 
         $response = $this->actingAs($superAdmin)->from(route('meetings.create'))->post(route('meetings.store'), [
-            'title' => 'Overlap Conflict Attempt',
-            'start_time' => $start->copy()->addMinutes(15)->format('Y-m-d\TH:i'),
-            'end_time' => $end->copy()->addMinutes(15)->format('Y-m-d\TH:i'),
+            'title' => 'Invalid Timing Attempt',
+            'start_time' => $start->format('Y-m-d\TH:i'),
+            'end_time' => $invalidEnd->format('Y-m-d\TH:i'),
             'timezone' => 'America/New_York',
-            'room_id' => $room->id,
-            'type' => 'in_person',
+            'type' => 'virtual',
         ]);
 
         $response->assertRedirect(route('meetings.create'));
-        $response->assertSessionHasErrors(['room_id']);
+        $response->assertSessionHasErrors(['end_time']);
     }
 
     public function test_user_can_edit_meeting(): void
