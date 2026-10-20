@@ -18,7 +18,8 @@
 </head>
 <body class="h-full font-sans antialiased text-slate-100 bg-[#15181D] selection:bg-amber-400 selection:text-slate-950 overflow-x-hidden relative" x-data="{ sidebarOpen: false }">
 
-    <!-- Atmospheric Organic Earthy Waves & Contour Art (Inspired by Reference) -->
+    <!-- Atmospheric Organic Earthy Waves & Contour Art (For Authenticated App Workspace) -->
+    @auth
     <div class="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
         <svg class="absolute w-full h-full min-w-[1200px] min-h-[900px] opacity-90" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
             <!-- Clay / Terracotta Top-Left Blob -->
@@ -42,6 +43,7 @@
             <path d="M720 -80C780 140 880 320 980 440C1080 560 1240 640 1460 600" stroke="#E2E8F0" stroke-opacity="0.1" stroke-width="1.5"/>
         </svg>
     </div>
+    @endauth
 
     @auth
         <div class="min-h-full flex flex-col lg:flex-row">
