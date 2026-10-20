@@ -7,6 +7,10 @@
 
     <title>Schedule with {{ $host->name }} &bull; Schedio</title>
 
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+    <link rel="icon" type="image/png" sizes="256x256" href="{{ asset('favicon.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('favicon.png') }}">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -330,8 +334,14 @@
     </main>
 
     <!-- Footer -->
-    <footer class="relative z-10 w-full py-4 border-t border-white/[0.08] bg-[#121418]/60 text-center text-xs text-slate-500">
-        &copy; {{ date('Y') }} Schedio Enterprise Scheduling System &bull; Secure Client Booking Link
+    <footer class="relative z-10 w-full py-4 border-t border-white/[0.08] bg-[#121418]/60 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-center gap-3">
+        <span>&copy; {{ date('Y') }} Schedio Enterprise Scheduling System &bull; Secure Client Booking Link</span>
+        <span class="hidden sm:inline text-slate-700">&bull;</span>
+        <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.08]">
+            <span class="text-[10px] text-slate-400">Powered by</span>
+            <img src="{{ asset('images/goconnectiveo-icon.png') }}" alt="GoConnectiveo" class="w-3 h-3 object-contain" />
+            <span class="text-[11px] font-bold text-white">Go<span class="text-orange-400">Connectiveo</span></span>
+        </div>
     </footer>
 
     <!-- Alpine.js Reactive Controller Script -->

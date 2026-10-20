@@ -1,9 +1,13 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang={{ str_replace('_', '-', app()->getLocale()) }} class=h-full>
 <head>
     <meta charset=utf-8>
     <meta name=viewport content=width=device-width, initial-scale=1>
     <title>{{ config('app.name', 'Schedio') }} - Enterprise Scheduling & Operations</title>
+
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+    <link rel="icon" type="image/png" sizes="256x256" href="{{ asset('favicon.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('favicon.png') }}">
 
     <link rel=preconnect href=https://fonts.googleapis.com>
     <link rel=preconnect href=https://fonts.gstatic.com crossorigin>
@@ -11,24 +15,13 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class=min-h-full bg-slate-950 text-slate-100 font-sans antialiased flex flex-col justify-between selection:bg-indigo-500 selection:text-white x-data={ loaded: true, time: new Date().toLocaleTimeString() } x-init=setInterval(() => time = new Date().toLocaleTimeString(), 1000)>
+<body class=min-h-full bg-slate-950 text-slate-100 font-sans antialiased flex flex-col justify-between selection:bg-amber-400 selection:text-slate-950 x-data={ loaded: true, time: new Date().toLocaleTimeString() } x-init=setInterval(() => time = new Date().toLocaleTimeString(), 1000)>
     
     {{-- Header --}}
     <header class=w-full border-b border-slate-800/80 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50>
         <div class=max-w-7xl mx-auto px-6 h-16 flex items-center justify-between>
             <div class=flex items-center gap-3>
-                <div class=w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/20 ring-1 ring-white/20>
-                    <svg class=w-5 h-5 text-white viewBox=0 0 24 24 fill=none stroke=currentColor stroke-width=2.2 stroke-linecap=round stroke-linejoin=round>
-                        <rect x=3 y=4 width=18 height=18 rx=2 ry=2></rect>
-                        <line x1=16 y1=2 x2=16 y2=6></line>
-                        <line x1=8 y1=2 x2=8 y2=6></line>
-                        <line x1=3 y1=10 x2=21 y2=10></line>
-                    </svg>
-                </div>
-                <div>
-                    <span class=text-lg font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent>Schedio</span>
-                    <span class=ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20>Foundation v1.0</span>
-                </div>
+                <x-brand-logo size="sm" badge="v1.0" subtitle="Enterprise Platform" />
             </div>
 
             <div class=flex items-center gap-4 text-xs font-medium text-slate-400>
@@ -138,8 +131,13 @@
                 &copy; {{ date('Y') }} Schedio Enterprise Scheduling System. All rights reserved.
             </div>
             <div class=flex items-center gap-6>
-                <span>Laravel Herd Windows Environment</span>
-                <span>Node v24 / npm 11</span>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-slate-500">Powered by</span>
+                    <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800">
+                        <img src="{{ asset('images/goconnectiveo-icon.png') }}" alt="GoConnectiveo" class="w-3 h-3 object-contain" />
+                        <span class="text-[11px] font-bold text-white">Go<span class="text-orange-400">Connectiveo</span></span>
+                    </div>
+                </div>
             </div>
         </div>
     </footer>

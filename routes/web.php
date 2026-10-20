@@ -86,6 +86,10 @@ Route::middleware(['auth', 'approved'])->group(function () {
     Route::post('/tasks', [\App\Http\Controllers\TaskController::class, 'store'])->name('tasks.store');
     Route::patch('/tasks/{task}/status', [\App\Http\Controllers\TaskController::class, 'updateStatus'])->name('tasks.update-status');
 
+    // Schedio Intelligent AI Copilot
+    Route::post('/ai/chat', [\App\Http\Controllers\AiAssistantController::class, 'chat'])->name('ai.chat');
+    Route::post('/ai/clear', [\App\Http\Controllers\AiAssistantController::class, 'clear'])->name('ai.clear');
+
     // Super Admin registration request management
     Route::middleware('super_admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/registration-requests', [RegistrationRequestController::class, 'index'])->name('registration-requests.index');

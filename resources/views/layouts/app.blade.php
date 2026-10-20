@@ -6,6 +6,8 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Schedio') — Intelligent Calendar & Meeting Suite</title>
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+    <link rel="icon" type="image/png" sizes="256x256" href="{{ asset('favicon.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('favicon.png') }}">
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -73,6 +75,9 @@
                 </main>
             </div>
         </div>
+
+        <!-- Schedio AI Copilot Floating Assistant -->
+        @include('components.ai-assistant-drawer')
     @else
         @yield('content')
     @endauth

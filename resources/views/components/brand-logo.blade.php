@@ -1,5 +1,5 @@
 @props([
-    'size' => 'md', // sm (28px), md (38px), lg (48px), xl (64px)
+    'size' => 'md', // sm (32px), md (44px), lg (56px), xl (80px)
     'showText' => true,
     'showSubtitle' => true,
     'subtitle' => 'Executive Workspace',
@@ -9,11 +9,11 @@
 
 @php
     $sizeClasses = match($size) {
-        'sm' => 'w-7 h-7',
-        'md' => 'w-10 h-10',
-        'lg' => 'w-12 h-12',
-        'xl' => 'w-16 h-16',
-        default => 'w-10 h-10',
+        'sm' => 'w-8 h-8 rounded-xl p-1',
+        'md' => 'w-11 h-11 rounded-2xl p-1.5',
+        'lg' => 'w-14 h-14 rounded-2xl p-2',
+        'xl' => 'w-20 h-20 sm:w-22 sm:h-22 rounded-3xl p-2.5',
+        default => 'w-11 h-11 rounded-2xl p-1.5',
     };
 
     $textClasses = match($size) {
@@ -23,71 +23,14 @@
         'xl' => 'text-3xl',
         default => 'text-[19px]',
     };
-
-    $svgId = 'schedio-delta-' . uniqid();
 @endphp
 
-<div {{ $attributes->merge(['class' => 'inline-flex items-center gap-3 select-none group']) }}>
-    <!-- Schedio Delta-Chrono Luxury Emblem (Inspired by Reference) -->
-    <div class="relative shrink-0 {{ $sizeClasses }} rounded-2xl transition-all duration-300 group-hover:scale-105 group-hover:shadow-[0_0_26px_rgba(245,158,11,0.35)] shadow-lg">
-        <svg class="w-full h-full" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-                <!-- Deep Obsidian Core -->
-                <linearGradient id="{{ $svgId }}-bg" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stop-color="#1B202B"/>
-                    <stop offset="50%" stop-color="#0E121A"/>
-                    <stop offset="100%" stop-color="#07090E"/>
-                </linearGradient>
-
-                <!-- Radiant Golden Titanium Outline -->
-                <linearGradient id="{{ $svgId }}-stroke" x1="10" y1="12" x2="38" y2="38" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stop-color="#FFFDF5"/>
-                    <stop offset="25%" stop-color="#FDE68A"/>
-                    <stop offset="65%" stop-color="#F59E0B"/>
-                    <stop offset="100%" stop-color="#D97706"/>
-                </linearGradient>
-
-                <!-- Specular Core Node -->
-                <linearGradient id="{{ $svgId }}-node" x1="20" y1="20" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stop-color="#FFFFFF"/>
-                    <stop offset="50%" stop-color="#FDE68A"/>
-                    <stop offset="100%" stop-color="#F59E0B"/>
-                </linearGradient>
-
-                <!-- Specular Container Border -->
-                <linearGradient id="{{ $svgId }}-border" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.25"/>
-                    <stop offset="40%" stop-color="#F59E0B" stop-opacity="0.5"/>
-                    <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.06"/>
-                </linearGradient>
-            </defs>
-
-            <!-- Base Squircle Armor -->
-            <rect x="1.5" y="1.5" width="45" height="45" rx="13" fill="url(#{{ $svgId }}-bg)"/>
-            <rect x="1.5" y="1.5" width="45" height="45" rx="13" stroke="url(#{{ $svgId }}-border)" stroke-width="1.2"/>
-
-            <!-- Delta-Chrono Geometric Shield -->
-            <path d="M 12.5 14 H 35.5 C 37.2 14 38.2 15.9 37.3 17.3 L 25.8 35.8 C 24.9 37.2 23.1 37.2 22.2 35.8 L 10.7 17.3 C 9.8 15.9 10.8 14 12.5 14 Z"
-                  stroke="url(#{{ $svgId }}-stroke)"
-                  stroke-width="3.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"/>
-
-            <!-- Internal S-Chrono Connector Path (Connecting top to center node, then down) -->
-            <path d="M 16 18.5 L 24 24.5 L 20 31"
-                  stroke="url(#{{ $svgId }}-stroke)"
-                  stroke-width="3"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"/>
-
-            <!-- Precision Chrono Focal Node (The Onboarding / Time Center) -->
-            <circle cx="24" cy="24.5" r="3.4" fill="url(#{{ $svgId }}-node)"/>
-            <circle cx="24" cy="24.5" r="1.3" fill="#0E121A"/>
-
-            <!-- Live Status Pulse Beacon (Top-Right) -->
-            <circle cx="36" cy="12" r="2.2" fill="#34D399"/>
-            <circle cx="36" cy="12" r="1" fill="#FFFFFF"/>
-        </svg>
+<div {{ $attributes->merge(['class' => 'inline-flex items-center gap-3 select-none group cursor-pointer']) }}>
+    <!-- Schedio Luxury Golden Calendar Emblem -->
+    <div class="relative shrink-0 {{ $sizeClasses }} flex items-center justify-center bg-gradient-to-br from-[#181C24] via-[#0E1117] to-[#07090D] shadow-2xl shadow-black/80 ring-1 ring-amber-400/40 transition-all duration-300 group-hover:scale-105 group-hover:ring-amber-300 group-hover:shadow-[0_0_35px_rgba(245,158,11,0.5)]">
+        <img src="{{ asset('images/schedio-logo.png') }}"
+             alt="Schedio"
+             class="w-full h-full object-contain filter drop-shadow-[0_4px_12px_rgba(245,158,11,0.35)] select-none pointer-events-none" />
     </div>
 
     @if ($showText)

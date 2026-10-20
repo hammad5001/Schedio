@@ -192,7 +192,7 @@
         </div>
 
         <!-- Trust & Security Minimalist Badges -->
-        <div class="mt-4 flex items-center justify-center gap-3 text-[10px] text-slate-500 font-medium">
+        <div class="mt-3 flex items-center justify-center gap-3 text-[10px] text-slate-500 font-medium">
             <span class="inline-flex items-center gap-1">
                 <svg class="w-3 h-3 text-amber-500/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
@@ -203,6 +203,23 @@
             <span>Multi-Tenant Scoped</span>
             <span class="w-1 h-1 rounded-full bg-slate-800"></span>
             <span>SOC-2 Certified</span>
+        </div>
+
+        <!-- Executive Powered by GoConnectiveo Signature Badge -->
+        <div class="mt-2.5 flex items-center justify-center">
+            <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#12161F]/80 hover:bg-[#181D28] border border-white/[0.08] hover:border-orange-500/40 shadow-lg shadow-black/40 backdrop-blur-xl transition-all duration-300 group cursor-default">
+                <span class="text-[10px] font-medium text-slate-400 tracking-wide">
+                    Powered by
+                </span>
+                <div class="flex items-center gap-1.5">
+                    <img src="{{ asset('images/goconnectiveo-icon.png') }}"
+                         alt="GoConnectiveo"
+                         class="w-3.5 h-3.5 object-contain transition-transform duration-300 group-hover:scale-110" />
+                    <span class="text-[11px] font-bold tracking-tight text-white group-hover:text-amber-100 transition-colors">
+                        Go<span class="text-orange-400">Connectiveo</span>
+                    </span>
+                </div>
+            </div>
         </div>
     </div>
 </div>
