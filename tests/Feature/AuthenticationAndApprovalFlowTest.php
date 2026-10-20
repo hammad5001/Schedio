@@ -126,4 +126,70 @@ class AuthenticationAndApprovalFlowTest extends TestCase
 
         $response->assertStatus(403);
     }
+
+    public function test_admin_can_revert_rejected_registration_and_free_email_for_reapplication(): void
+    {
+        $superAdmin = User::where('email', 'admin@schedio.com')->first();
+        $pendingUser = User::where('email', 'jessica.t@initech.com')->first();
+
+        // 1. Reject first
+        $this->actingAs($superAdmin)
+            ->patch(route('admin.registration-requests.reject', $pendingUser), [
+                'rejection_reason' => 'Applied as CEO by mistake.',
+            ]);
+
+        $pendingUser->refresh();
+        $this->assertEquals(User::STATUS_REJECTED, $pendingUser->approval_status);
+
+        // 2. Revert the application
+        $revertResponse = $this->actingAs($superAdmin)
+            ->delete(route('admin.registration-requests.revert', $pendingUser));
+
+        $revertResponse->assertRedirect();
+        $revertResponse->assertSessionHas('success');
+
+        // Verify user is permanently removed from users table
+        $this->assertDatabaseMissing('users', [
+            'email' => 'jessica.t@initech.com',
+        ]);
+
+        // 3. User can now register afresh with the exact same email address!
+        auth()->logout();
+        $registerResponse = $this->post(route('register.post'), [
+            'name' => 'Jessica Taylor',
+            'email' => 'jessica.t@initech.com',
+            'password' => 'SecurePass123!',
+            'password_confirmation' => 'SecurePass123!',
+            'registration_type' => 'employee',
+            'company_id' => $superAdmin->company_id,
+        ]);
+
+        $registerResponse->assertRedirect(route('login'));
+        $registerResponse->assertSessionHas('status');
+
+        $recreatedUser = User::where('email', 'jessica.t@initech.com')->first();
+        $this->assertNotNull($recreatedUser);
+        $this->assertEquals(User::STATUS_PENDING, $recreatedUser->approval_status);
+    }
+
+    public function test_admin_can_restore_rejected_registration_to_pending(): void
+    {
+        $superAdmin = User::where('email', 'admin@schedio.com')->first();
+        $pendingUser = User::where('email', 'jessica.t@initech.com')->first();
+
+        // 1. Reject
+        $this->actingAs($superAdmin)
+            ->patch(route('admin.registration-requests.reject', $pendingUser));
+
+        // 2. Restore to pending
+        $restoreResponse = $this->actingAs($superAdmin)
+            ->patch(route('admin.registration-requests.restore-pending', $pendingUser));
+
+        $restoreResponse->assertRedirect();
+        $restoreResponse->assertSessionHas('success');
+
+        $pendingUser->refresh();
+        $this->assertEquals(User::STATUS_PENDING, $pendingUser->approval_status);
+        $this->assertNull($pendingUser->rejection_reason);
+    }
 }

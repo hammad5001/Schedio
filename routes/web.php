@@ -91,5 +91,7 @@ Route::middleware(['auth', 'approved'])->group(function () {
         Route::get('/registration-requests', [RegistrationRequestController::class, 'index'])->name('registration-requests.index');
         Route::patch('/registration-requests/{user}/approve', [RegistrationRequestController::class, 'approve'])->name('registration-requests.approve');
         Route::patch('/registration-requests/{user}/reject', [RegistrationRequestController::class, 'reject'])->name('registration-requests.reject');
+        Route::delete('/registration-requests/{user}/revert', [RegistrationRequestController::class, 'revert'])->name('registration-requests.revert');
+        Route::patch('/registration-requests/{user}/restore-pending', [RegistrationRequestController::class, 'restorePending'])->name('registration-requests.restore-pending');
     });
 });

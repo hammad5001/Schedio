@@ -265,6 +265,23 @@
                                                 Reject
                                             </button>
                                         </div>
+
+                                        <!-- Fast Revert Option for Mistaken Submissions -->
+                                        <div class="flex items-center justify-end pt-1">
+                                            <button type="submit" form="revert-form-{{ $req->id }}"
+                                                class="text-[11px] text-amber-400/90 hover:text-amber-300 font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                                                title="Discard this mistaken application and free the email so the user can re-apply">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                                <span>Revert & Free Email</span>
+                                            </button>
+                                        </div>
+                                    </form>
+
+                                    <!-- Revert form definition for pending card -->
+                                    <form id="revert-form-{{ $req->id }}" action="{{ route('admin.registration-requests.revert', $req) }}" method="POST" class="hidden"
+                                        onsubmit="return confirm('Revert and discard this application? The email {{ $req->email }} will be completely released so they can re-apply cleanly.');">
+                                        @csrf
+                                        @method('DELETE')
                                     </form>
 
                                     <!-- Inline Reject Prompt -->
@@ -281,8 +298,49 @@
                                         </form>
                                     </div>
                                 </div>
+                            @elseif ($req->approval_status === 'rejected')
+                                <div class="bg-slate-950/80 p-4 rounded-xl border border-slate-800/80 min-w-[320px] flex flex-col justify-between space-y-3">
+                                    <div class="text-xs text-slate-400 space-y-1">
+                                        <div class="text-rose-400 font-bold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                                            <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                                            <span>Application Rejected</span>
+                                        </div>
+                                        <div>Processed by: <span class="text-slate-300 font-medium">{{ $req->approver ? $req->approver->name : 'System Admin' }}</span></div>
+                                        <div class="text-[11px] text-slate-500">Freeing this record allows the applicant to re-register with this email.</div>
+                                    </div>
+
+                                    <div class="pt-2 border-t border-slate-800 flex items-center gap-2">
+                                        <!-- Revert & Free Email Button -->
+                                        <form action="{{ route('admin.registration-requests.revert', $req) }}" method="POST" class="flex-1"
+                                            onsubmit="return confirm('Revert and remove this application? This will permanently free the email {{ $req->email }} so the user can re-apply cleanly.');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit"
+                                                class="w-full py-2 px-3 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 hover:text-amber-200 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                                                title="Permanently remove this registration and release the email address to allow a new application">
+                                                <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                                <span>Revert & Free Email</span>
+                                            </button>
+                                        </form>
+
+                                        <!-- Restore to Pending Queue -->
+                                        <form action="{{ route('admin.registration-requests.restore-pending', $req) }}" method="POST">
+                                            @csrf
+                                            @method('PATCH')
+                                            <button type="submit"
+                                                class="py-2 px-2.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-all cursor-pointer"
+                                                title="Restore to Pending Queue for review or role change">
+                                                <span>Re-open</span>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
                             @else
                                 <div class="text-right text-xs text-slate-500 space-y-1">
+                                    <div class="text-emerald-400 font-bold text-[11px] uppercase tracking-wider flex items-center justify-end gap-1.5">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                        <span>Active Workspace User</span>
+                                    </div>
                                     <div>Processed by: <span class="text-slate-300">{{ $req->approver ? $req->approver->name : 'System Admin' }}</span></div>
                                     @if ($req->approved_at)
                                         <div>Date: <span class="text-slate-400">{{ $req->approved_at->format('M d, Y') }}</span></div>

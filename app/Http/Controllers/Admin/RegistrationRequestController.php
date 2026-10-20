@@ -197,4 +197,109 @@ class RegistrationRequestController extends Controller
 
         return back()->with('success', "Registration request for {$user->name} was marked as rejected.");
     }
+
+    /**
+     * Revert and purge a rejected or mistaken registration request.
+     * This permanently removes the applicant record and any pending orphan company workspace,
+     * freeing up their email address so they can re-apply cleanly.
+     */
+    public function revert(Request $request, User $user): RedirectResponse
+    {
+        $admin = Auth::user();
+
+        if (! $admin->isDeveloper() && $user->company_id !== $admin->company_id) {
+            abort(403, 'Unauthorized. You can only manage staff in your own company.');
+        }
+
+        if ($user->isCompanySuperAdmin() && ! $admin->isDeveloper()) {
+            abort(403, 'Unauthorized. Only Platform Developer can revert Company Super Admin applications.');
+        }
+
+        $userName = $user->name;
+        $userEmail = $user->email;
+        $companyId = $user->company_id;
+        $isCompanySuperAdmin = $user->isCompanySuperAdmin();
+
+        // Audit log before deleting
+        AuditLog::create([
+            'company_id' => $companyId,
+            'user_id' => $admin->id,
+            'action' => 'registration_reverted',
+            'auditable_type' => User::class,
+            'auditable_id' => $user->id,
+            'description' => "{$admin->role_label} {$admin->name} reverted and purged the registration request for {$userName} ({$userEmail}). The email address has been freed to allow re-application.",
+            'old_values' => [
+                'approval_status' => $user->approval_status,
+                'role' => $user->role,
+                'email' => $userEmail,
+                'rejection_reason' => $user->rejection_reason,
+            ],
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        // If user was a Company Super Admin, remove the company if no other users exist
+        if ($isCompanySuperAdmin && $companyId) {
+            $otherUsersCount = User::withoutGlobalScopes()
+                ->where('company_id', $companyId)
+                ->where('id', '!=', $user->id)
+                ->count();
+
+            if ($otherUsersCount === 0) {
+                $company = Company::find($companyId);
+                if ($company) {
+                    $company->delete();
+                }
+            }
+        }
+
+        // Permanently force-delete to release the unique email constraint
+        $user->forceDelete();
+
+        return back()->with('success', "Application for {$userName} ({$userEmail}) was successfully reverted. The email is now freed up and the user can re-apply.");
+    }
+
+    /**
+     * Restore a rejected request back to the pending queue for direct approval or role adjustment.
+     */
+    public function restorePending(Request $request, User $user): RedirectResponse
+    {
+        $admin = Auth::user();
+
+        if (! $admin->isDeveloper() && $user->company_id !== $admin->company_id) {
+            abort(403, 'Unauthorized. You can only manage staff in your own company.');
+        }
+
+        if ($user->isCompanySuperAdmin() && ! $admin->isDeveloper()) {
+            abort(403, 'Unauthorized. Only Platform Developer can restore Company Super Admin applications.');
+        }
+
+        $user->update([
+            'approval_status' => User::STATUS_PENDING,
+            'rejection_reason' => null,
+            'approved_at' => null,
+            'approved_by' => null,
+        ]);
+
+        if ($user->isCompanySuperAdmin() && $user->company_id) {
+            $company = Company::find($user->company_id);
+            if ($company && $company->status === Company::STATUS_REJECTED) {
+                $company->update(['status' => Company::STATUS_PENDING]);
+            }
+        }
+
+        AuditLog::create([
+            'company_id' => $user->company_id,
+            'user_id' => $admin->id,
+            'action' => 'registration_restored_pending',
+            'auditable_type' => User::class,
+            'auditable_id' => $user->id,
+            'description' => "{$admin->role_label} {$admin->name} restored {$user->name} ({$user->email}) to the pending queue.",
+            'new_values' => ['approval_status' => User::STATUS_PENDING],
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return back()->with('success', "Registration request for {$user->name} has been restored to the Pending Queue.");
+    }
 }
