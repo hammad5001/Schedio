@@ -28,7 +28,7 @@ class SchedioAiAgentService
             }
         }
 
-        $this->model = config('services.gemini.model') ?: env('GEMINI_MODEL', 'gemini-3.8-flash');
+        $this->model = config('services.gemini.model') ?: env('GEMINI_MODEL', 'gemini-3.5-flash-lite');
 
         if (empty($this->model) && file_exists(base_path('.env'))) {
             $env = file_get_contents(base_path('.env'));
@@ -80,13 +80,12 @@ class SchedioAiAgentService
      */
     protected function callGeminiApi(string $systemInstructions, string $message, array $history): ?string
     {
-        // Candidate models pool with automatic fallback in case of rate limits or model spikes
+        // Fast candidate models pool with instantaneous response time and fallback
         $candidateModels = array_values(array_unique(array_filter([
-            $this->model,
-            'gemini-3.8-flash',
             'gemini-3.5-flash-lite',
             'gemini-flash-lite-latest',
-            'gemini-3.7-flash',
+            $this->model,
+            'gemini-3.8-flash',
             'gemini-flash-latest',
         ])));
 
@@ -126,6 +125,7 @@ class SchedioAiAgentService
 
             try {
                 $res = Http::timeout(15)
+                    ->withoutVerifying()
                     ->withHeaders(['Content-Type' => 'application/json'])
                     ->post($url, $payload);
 
