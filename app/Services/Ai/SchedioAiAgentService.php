@@ -129,7 +129,68 @@ class SchedioAiAgentService
             }
         }
 
-        // 2. Update Client Status (Onboard, Paperwork, Pause, Discovery, Deadend)
+        // 2. Create Client (Add New Lead to CRM Pipeline)
+        if ($type === 'create_client' || $type === 'add_client') {
+            $companyName = trim($action['company_name'] ?? $action['name'] ?? $action['client_name'] ?? '');
+            $contactName = trim($action['contact_name'] ?? '');
+
+            if (empty($companyName) && !empty($contactName)) {
+                $companyName = $contactName;
+            } elseif (!empty($companyName) && empty($contactName)) {
+                $contactName = $companyName;
+            }
+
+            if (empty($companyName)) {
+                $companyName = 'New Lead';
+                $contactName = 'New Contact';
+            }
+
+            $targetStatus = strtolower(trim($action['status'] ?? 'discovery'));
+            $statusMap = [
+                'discovery' => Client::STATUS_DISCOVERY,
+                'lead' => Client::STATUS_DISCOVERY,
+                'scheduled' => Client::STATUS_SCHEDULED,
+                'paperwork' => Client::STATUS_PAPERWORK_ONBOARDING,
+                'paperwork_onboarding' => Client::STATUS_PAPERWORK_ONBOARDING,
+                'onboard' => Client::STATUS_ONBOARDED,
+                'onboarded' => Client::STATUS_ONBOARDED,
+                'won' => Client::STATUS_ONBOARDED,
+                'pause' => Client::STATUS_PAUSE,
+                'deadend' => Client::STATUS_DEADEND,
+            ];
+            $canonicalStatus = $statusMap[$targetStatus] ?? Client::STATUS_DISCOVERY;
+
+            $companyId = $user->company_id ?: (Company::where('status', Company::STATUS_ACTIVE)->value('id') ?: Company::value('id') ?: 1);
+
+            $client = Client::create([
+                'company_id' => $companyId,
+                'company_name' => $companyName,
+                'contact_name' => $contactName,
+                'contact_email' => $action['contact_email'] ?? null,
+                'contact_phone' => $action['contact_phone'] ?? null,
+                'deal_value' => !empty($action['deal_value']) ? (float)$action['deal_value'] : 0,
+                'status' => $canonicalStatus,
+                'created_by' => $user->id,
+                'assigned_to' => $user->id,
+                'last_activity_at' => now(),
+            ]);
+
+            try {
+                AuditLog::create([
+                    'user_id' => $user->id,
+                    'action' => 'client_created',
+                    'auditable_type' => Client::class,
+                    'auditable_id' => $client->id,
+                    'description' => "Client '{$client->company_name}' ({$client->contact_name}) added via Schedio Copilot Agent by {$user->name}.",
+                    'new_values' => $client->toArray(),
+                ]);
+            } catch (\Throwable $e) {}
+
+            $url = route('clients.show', $client->id);
+            return "✅ **Client Successfully Added to Database!**\n\n**{$client->company_name}** ({$client->contact_name}) ko aapke CRM Pipeline mein **{$client->status_label}** stage par database mein add kar diya gaya hai.\n\n👉 [Client Details Page Open Karein]({$url}) | [CRM Pipeline Dekhein](/clients)";
+        }
+
+        // 3. Update Client Status (Onboard, Paperwork, Pause, Discovery, Deadend)
         if ($type === 'update_client' || $type === 'update_client_status') {
             $clientName = trim($action['client_name'] ?? '');
             $targetStatus = strtolower(trim($action['status'] ?? ''));
@@ -187,6 +248,22 @@ class SchedioAiAgentService
                 $url = route('clients.show', $client->id);
                 return "✅ **Client Status Updated in Database!**\n\n**{$client->company_name}** ({$client->contact_name}) ko **{$oldLabel}** se shift karke **{$client->status_label}** stage me update kar diya gaya hai.\n\n👉 [Client Details Page Open Karein]({$url}) | [CRM Pipeline Dekhein](/clients)";
             } else {
+                // If client doesn't exist and explicit name given, auto-create directly in that stage!
+                if (!empty($clientName) && !preg_match('/^(?:isse|isko|ise|iss\s+ko|use|usko|this\s+client)$/i', $clientName)) {
+                    $companyId = $user->company_id ?: (Company::where('status', Company::STATUS_ACTIVE)->value('id') ?: Company::value('id') ?: 1);
+                    $client = Client::create([
+                        'company_id' => $companyId,
+                        'company_name' => $clientName,
+                        'contact_name' => $clientName,
+                        'status' => $canonicalStatus,
+                        'created_by' => $user->id,
+                        'assigned_to' => $user->id,
+                        'last_activity_at' => now(),
+                    ]);
+                    $url = route('clients.show', $client->id);
+                    return "✅ **Client Created & Set to {$client->status_label} in Database!**\n\n**{$client->company_name}** ({$client->contact_name}) ko CRM Pipeline mein naya add karke **{$client->status_label}** stage par set kar diya gaya hai.\n\n👉 [Client Details Page Open Karein]({$url}) | [CRM Pipeline Dekhein](/clients)";
+                }
+
                 $recentClients = Client::withoutGlobalScopes()
                     ->when($user->company_id, fn ($q) => $q->where('company_id', $user->company_id))
                     ->latest('updated_at')
@@ -304,6 +381,39 @@ class SchedioAiAgentService
     protected function detectAndExecuteLocalIntent(User $user, string $query): ?string
     {
         $q = trim($query);
+
+        // 0. Create Client / Add Lead Intent: e.g. "Tonny Brown ko add kar do", "Tonny Brown ko client add kardo", "Add client Tonny Brown", "Add Tonny Brown to pipeline"
+        $clientAddMatched = false;
+        $newClientName = '';
+
+        if (preg_match('/(?:ek\s+)?(?:naya\s+)?(?:client|lead)?\s*[\'"]?([a-zA-Z0-9\s\.\-_]+?)[\'"]?\s+(?:ko\s+|k\s+)?(?:client|lead|pipeline\s+me|pipeline)?\s*(?:add|create|shamil|dakhil|bana)\s*(?:kar\s*do|kr\s*do|kardo|karo|do)/i', $q, $m)) {
+            $newClientName = trim($m[1]);
+            $clientAddMatched = true;
+        } elseif (preg_match('/^(?:add|create)\s+(?:client|lead)\s+[\'"]?([a-zA-Z0-9\s\.\-_]+?)[\'"]?(?:\s+(?:to|in)\s+pipeline)?$/i', $q, $m)) {
+            $newClientName = trim($m[1]);
+            $clientAddMatched = true;
+        } elseif (preg_match('/^(?:add|create)\s+[\'"]?([a-zA-Z0-9\s\.\-_]+?)[\'"]?\s+(?:to|in)\s+(?:crm|pipeline|leads|clients)$/i', $q, $m)) {
+            $newClientName = trim($m[1]);
+            $clientAddMatched = true;
+        } elseif (preg_match('/^([a-zA-Z0-9\s\.\-_]+?)\s+(?:ko\s+)?(?:client|lead)\s+(?:bana\s*do|banado|add\s*kar\s*do|add\s*krdo|add\s*kardo)/i', $q, $m)) {
+            $newClientName = trim($m[1]);
+            $clientAddMatched = true;
+        }
+
+        if ($clientAddMatched && !empty($newClientName)) {
+            $stopWords = ['meeting', 'room', 'task', 'call', 'calendar', 'sync', 'aaj', 'kal'];
+            if (!in_array(strtolower($newClientName), $stopWords) && strlen($newClientName) >= 2) {
+                $actionResult = $this->executeAgentAction($user, [
+                    'action' => 'create_client',
+                    'company_name' => $newClientName,
+                    'contact_name' => $newClientName,
+                    'status' => 'discovery',
+                ]);
+                if ($actionResult !== null) {
+                    return $actionResult;
+                }
+            }
+        }
 
         // 1. Client Status Update Intent:
         // Pattern A: e.g. "Starlight Media ko onboard kar do", "Acme ko pause kardo", "isse onboard krdo", "isko onboard kar do"
@@ -672,16 +782,24 @@ Your primary role is to help the user navigate Schedio, answer any questions abo
 ### Autonomous Agent Actions (Live Database Mutations):
 You have direct autonomous authorization to execute database actions when the user asks you to perform an operational task!
 To execute an action, output a single JSON tag in the exact format: `[ACTION: {"action": "...", ...}]` anywhere in your response.
+
+CRITICAL ANTI-HALLUCINATION RULE:
+You CANNOT modify or create database records by simply writing conversational text!
+If the user asks you to add, create, onboard, or schedule anything, you MUST output the corresponding [ACTION: ...] tag.
+NEVER tell the user "Maine add kar diya hai" or "Lead add ho gaya hai" unless you emit the [ACTION: ...] tag! Without the [ACTION: ...] tag, NO database mutation will occur!
+
 Supported actions:
-1. Schedule Meeting:
-   [ACTION: {"action": "schedule_meeting", "prompt": "<natural language text, e.g. 'Sync with Sarah tomorrow at 3pm'>"}]
-2. Update Client Status (Onboarding / Pipeline):
+1. Create Client / Add Lead:
+   [ACTION: {"action": "create_client", "company_name": "<Client or Company Name>", "contact_name": "<Contact Person>", "status": "discovery"}]
+2. Update Client Status (Onboarding / Pipeline Shift):
    [ACTION: {"action": "update_client", "client_name": "<Client or Company Name>", "status": "<onboarded|paperwork|scheduled|pause|deadend|discovery>"}]
-3. Create Task:
+3. Schedule Meeting:
+   [ACTION: {"action": "schedule_meeting", "prompt": "<natural language text, e.g. 'Sync with Sarah tomorrow at 3pm'>"}]
+4. Create Task:
    [ACTION: {"action": "create_task", "title": "<Task Title>", "assigned_to": "<Assignee Name>", "priority": "<low|medium|high|urgent>", "due_date": "YYYY-MM-DD"}]
-4. Complete Task:
+5. Complete Task:
    [ACTION: {"action": "complete_task", "task_title": "<Task Title>"}]
-5. Cancel Meeting:
+6. Cancel Meeting:
    [ACTION: {"action": "cancel_meeting", "meeting_title": "<Meeting Title>"}]
 
 Always confirm the action to the user in friendly, conversational language (Roman Urdu or English matching the user's query).

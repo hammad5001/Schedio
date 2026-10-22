@@ -201,5 +201,25 @@ class AiAssistantTest extends TestCase
         $this->assertStringContainsString('Task Completed in Database', $completeRes->json('answer'));
         $this->assertEquals('completed', $task->fresh()->status);
     }
+
+    public function test_ai_agent_autonomously_creates_new_client_lead(): void
+    {
+        $response = $this->actingAs($this->user)->postJson(route('ai.chat'), [
+            'message' => 'Tonny Brown ko add kar do',
+        ]);
+
+        $response->assertOk();
+        $this->assertStringContainsString('Client Successfully Added to Database', $response->json('answer'));
+        $this->assertStringContainsString('Tonny Brown', $response->json('answer'));
+
+        $client = Client::where('company_id', $this->company->id)
+            ->where('company_name', 'Tonny Brown')
+            ->first();
+
+        $this->assertNotNull($client);
+        $this->assertEquals(Client::STATUS_DISCOVERY, $client->status);
+        $this->assertEquals($this->user->id, $client->created_by);
+    }
 }
+
 
