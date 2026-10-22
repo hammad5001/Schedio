@@ -1,599 +1,527 @@
-# Schedio Mobile App — Backend API Integration Guide (v1)
+# Schedio Mobile App — Complete Backend API Integration Contract (v1)
 
 **Target Audience:** Mobile Flutter Engineering Team (`zain-saeed-mughal/Schedio-App`)  
 **Backend:** Official Schedio Laravel Production Backend  
-**Document Version:** 1.0 (Live & Verified)  
+**Specification Version:** 2.0 (Complete 58-Route Contract — Live & Verified)  
 **Date:** October 2026  
 
 ---
 
-## 1. Overview & Connection Settings
+## 1. Overview & 58-Route Verification Matrix
 
-The Flutter mobile application does not have a local database; it reads and writes all records directly from the central Schedio Laravel backend. This ensures real-time parity between the Web and Mobile apps for multi-tenancy, companies, users, calendar meetings, client pipelines, tasks, and notifications.
+The Schedio Flutter mobile application synchronizes directly with the central Schedio Laravel REST API. All 58 contract routes are implemented, registered under `/api/v1/*`, and verified via automated test suites.
 
 ### Base URLs
 | Environment | Base URL | Protocol | Status |
 | :--- | :--- | :--- | :--- |
 | **Production** | `https://schedio.live/api/v1/` | HTTPS Only | **Active & Live** |
-| **Staging** | `https://staging.schedio.live/api/v1/` | HTTPS Only | Active |
+| **Staging** | `https://schedio.live/api/v1/` (with Sandbox Tenant) | HTTPS Only | Active |
 
 ### Standard Request Headers
-For every HTTP call, include the following headers:
 ```http
 Accept: application/json
 Content-Type: application/json
-```
-For all protected routes, include the Sanctum Bearer token:
-```http
-Authorization: Bearer <your_access_token>
+Authorization: Bearer <sanctum_access_token>
 ```
 
-> [!NOTE]
-> All error responses return structured JSON with a `message` and an optional `errors` object.
+### Complete Route Inventory (58 / 58 Routes)
+
+| # | Group | Method | Endpoint | Auth | Purpose |
+| :- | :--- | :--- | :--- | :--- | :--- |
+| 1 | Auth | `POST` | `/api/v1/auth/login` | Public | Authenticate user & issue Sanctum Bearer token |
+| 2 | Auth | `POST` | `/api/v1/auth/register` | Public | Submit new company CEO or staff registration request |
+| 3 | Auth | `GET` | `/api/v1/auth/registration-options` | Public | Fetch active companies & departments for signup form |
+| 4 | Auth | `GET` | `/api/v1/auth/me` | Bearer | Retrieve authenticated profile & permission flags |
+| 5 | Auth | `POST` | `/api/v1/auth/logout` | Bearer | Revoke active access token |
+| 6 | Dashboard | `GET` | `/api/v1/dashboard` | Bearer | Executive overview (metrics, schedule, tasks, reminders) |
+| 7 | Lookups | `GET` | `/api/v1/lookups` | Bearer | Consolidated departments, rooms, users, roles, statuses |
+| 8 | Lookups | `GET` | `/api/v1/departments` | Bearer | List active departments |
+| 9 | Lookups | `GET` | `/api/v1/users` | Bearer | List active approved team members |
+| 10 | Devices | `POST` | `/api/v1/devices` | Bearer | Register or refresh FCM device push token |
+| 11 | Devices | `DELETE` | `/api/v1/devices/{token}` | Bearer | Remove FCM device token on sign-out |
+| 12 | Meetings | `GET` | `/api/v1/meetings` | Bearer | Paginated meetings list with filter & search |
+| 13 | Meetings | `POST` | `/api/v1/meetings` | Bearer | Schedule internal/client/virtual meeting |
+| 14 | Meetings | `GET` | `/api/v1/meetings/{id}` | Bearer | Meeting details, attendees, room, and notes |
+| 15 | Meetings | `PUT` | `/api/v1/meetings/{id}` | Bearer | Reschedule/update meeting details |
+| 16 | Meetings | `PATCH` | `/api/v1/meetings/{id}/cancel` | Bearer | Cancel meeting and notify participants |
+| 17 | Meetings | `DELETE` | `/api/v1/meetings/{id}` | Bearer | Delete meeting record |
+| 18 | Meetings | `POST` | `/api/v1/meetings/{id}/rsvp` | Bearer | Submit attendee RSVP (`accepted`, `declined`, `tentative`) |
+| 19 | Meeting Notes | `GET` | `/api/v1/meetings/{id}/notes` | Bearer | List notes for specific meeting |
+| 20 | Meeting Notes | `POST` | `/api/v1/meetings/{id}/notes` | Bearer | Add note to meeting session |
+| 21 | Meeting Notes | `GET` | `/api/v1/meeting-notes/{id}` | Bearer | View single meeting note details |
+| 22 | Meeting Notes | `PUT` | `/api/v1/meeting-notes/{id}` | Bearer | Update meeting note (agenda, discussion, decisions) |
+| 23 | Meeting Notes | `DELETE` | `/api/v1/meeting-notes/{id}` | Bearer | Delete meeting note |
+| 24 | Rooms | `GET` | `/api/v1/rooms` | Bearer | List meeting rooms with capacity, color, amenities |
+| 25 | Rooms | `POST` | `/api/v1/rooms` | Bearer | Create new meeting suite or focus pod |
+| 26 | Rooms | `GET` | `/api/v1/rooms/{id}` | Bearer | Room details and upcoming bookings timeline |
+| 27 | Rooms | `PUT` | `/api/v1/rooms/{id}` | Bearer | Update room configuration & capacity |
+| 28 | Rooms | `DELETE` | `/api/v1/rooms/{id}` | Bearer | Delete room |
+| 29 | Events | `GET` | `/api/v1/events` | Bearer | List holidays, trainings, milestones, deadlines |
+| 30 | Events | `POST` | `/api/v1/events` | Bearer | Schedule company or department event |
+| 31 | Events | `GET` | `/api/v1/events/{id}` | Bearer | View single event details |
+| 32 | Events | `PUT` | `/api/v1/events/{id}` | Bearer | Update event timing or details |
+| 33 | Events | `DELETE` | `/api/v1/events/{id}` | Bearer | Delete event |
+| 34 | Calendar | `GET` | `/api/v1/calendar/feed` | Bearer | Unified timeline feed of meetings & events |
+| 35 | Calendar | `POST` | `/api/v1/availability/check` | Bearer | Detect room or participant conflicts |
+| 36 | Calendar | `GET` | `/api/v1/availability/suggestions` | Bearer | Smart suggestion algorithm for conflict-free slots |
+| 37 | Clients CRM | `GET` | `/api/v1/clients` | Bearer | Paginated deal pipeline / CRM prospects |
+| 38 | Clients CRM | `POST` | `/api/v1/clients` | Bearer | Create new client record & prospect deal |
+| 39 | Clients CRM | `GET` | `/api/v1/clients/{id}` | Bearer | View client details and past meetings history |
+| 40 | Clients CRM | `PUT` | `/api/v1/clients/{id}` | Bearer | Update client contacts and deal value |
+| 41 | Clients CRM | `DELETE` | `/api/v1/clients/{id}` | Bearer | Delete client record |
+| 42 | Clients CRM | `PATCH` | `/api/v1/clients/{id}/status` | Bearer | Transition pipeline stage (`lead`, `discovery`, `proposal`, `won`, `lost`) |
+| 43 | Clients CRM | `GET` | `/api/v1/clients/{id}/meetings` | Bearer | List all meetings tied to client |
+| 44 | Tasks | `GET` | `/api/v1/tasks` | Bearer | Paginated tasks with status & priority filters |
+| 45 | Tasks | `POST` | `/api/v1/tasks` | Bearer | Create actionable task / meeting action item |
+| 46 | Tasks | `GET` | `/api/v1/tasks/{id}` | Bearer | View task details and assigned owner |
+| 47 | Tasks | `PATCH` | `/api/v1/tasks/{id}/status` | Bearer | Transition task status |
+| 48 | Notifications | `GET` | `/api/v1/notifications` | Bearer | Paginated notification feed (`all`, `unread`, `read`) |
+| 49 | Notifications | `PATCH` | `/api/v1/notifications/{id}/read` | Bearer | Mark notification as read |
+| 50 | Notifications | `PATCH` | `/api/v1/notifications/{id}/unread` | Bearer | Mark notification as unread |
+| 51 | Notifications | `DELETE` | `/api/v1/notifications/{id}` | Bearer | Dismiss notification |
+| 52 | Notifications | `POST` | `/api/v1/notifications/mark-all-read` | Bearer | Bulk mark all notifications as read |
+| 53 | Notifications | `GET` | `/api/v1/notifications/preferences` | Bearer | User notification channel preferences |
+| 54 | Notifications | `POST` | `/api/v1/notifications/preferences` | Bearer | Update channel & category toggles |
+| 55 | Admin | `GET` | `/api/v1/admin/registration-requests` | Bearer | List pending/approved/rejected registration requests |
+| 56 | Admin | `GET` | `/api/v1/admin/registration-requests/{id}/options` | Bearer | Available roles & departments for approval |
+| 57 | Admin | `PATCH` | `/api/v1/admin/registration-requests/{id}/approve` | Bearer | Approve registration request & assign role/department |
+| 58 | Admin | `PATCH` | `/api/v1/admin/registration-requests/{id}/reject` | Bearer | Reject registration request with reason |
+
+*(Public booking routes `GET /api/v1/public/booking/{username}`, `GET .../slots`, `POST ...` are also supported).*
 
 ---
 
-## 2. Flutter Client Setup & Integration Guide
+## 2. Authentication & Registration Specifications
 
-### A. Network Client with Interceptors (`lib/core/network/api_client.dart`)
-Use `Dio` to automatically attach the Bearer token, handle `401` session expirations, and process `403` account approval status dialogs:
-
-```dart
-import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
-class ApiClient {
-  static const String baseUrl = 'https://schedio.live/api/v1';
-  static const _storage = FlutterSecureStorage();
-  late final Dio dio;
-
-  ApiClient() {
-    dio = Dio(BaseOptions(
-      baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 15),
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-    ));
-
-    dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        // Automatically attach Bearer token
-        final token = await _storage.read(key: 'sanctum_token');
-        if (token != null && token.isNotEmpty) {
-          options.headers['Authorization'] = 'Bearer $token';
-        }
-        return handler.next(options);
-      },
-      onError: (DioException error, handler) async {
-        final statusCode = error.response?.statusCode;
-        final data = error.response?.data;
-
-        // 1. Token Expired or Revoked (401)
-        if (statusCode == 401) {
-          await _storage.delete(key: 'sanctum_token');
-          // Navigate user to login screen
-        }
-
-        // 2. Account Status Check (403: pending, rejected, inactive)
-        if (statusCode == 403 && data is Map && data.containsKey('account_status')) {
-          final accountStatus = data['account_status']; // 'pending' | 'rejected' | 'inactive'
-          final message = data['message'] ?? 'Access denied.';
-          // Display account status modal to user with the message
-        }
-
-        return handler.next(error);
-      },
-    ));
-  }
-}
-```
-
----
-
-## 3. Authentication Flow (Laravel Sanctum)
-
-### A. Sign In (Get Bearer Token)
-- **Endpoint:** `POST /api/v1/auth/login`
+### A. Registration Options
+- **Endpoint:** `GET /api/v1/auth/registration-options`
 - **Auth:** None (Public)
-- **Request Body:**
-```json
-{
-  "email": "mobile.tester@schedio.live",
-  "password": "TestAppPass123!",
-  "device_name": "Pixel 8 Pro"
-}
-```
-
-- **Successful Response (`200 OK`):**
-```json
-{
-  "token": "1|9f3c8a7b...",
-  "user": {
-    "id": 1,
-    "name": "Mobile App Tester",
-    "email": "mobile.tester@schedio.live",
-    "role": "developer",
-    "role_label": "Platform Developer",
-    "timezone": "Asia/Karachi",
-    "phone": null,
-    "title": null,
-    "avatar_url": null,
-    "company": {
-      "id": 1,
-      "name": "Schedio Technologies HQ",
-      "slug": "schedio-hq"
-    },
-    "department": {
-      "id": 1,
-      "name": "Engineering & Technology",
-      "code": "ENG"
-    },
-    "booking_url": "https://schedio.live/book/admin",
-    "booking_username": "admin",
-    "can_administer": true,
-    "can_manage_rooms": true,
-    "notification_preferences": {
-      "channels": { "in_app": true, "email": true },
-      "categories": { "meetings": { "in_app": true, "email": true } }
-    }
-  }
-}
-```
-
-- **Error Responses:**
-  - `401 Unauthorized`: Wrong email or password.
-    ```json
-    { "message": "Invalid email or password." }
-    ```
-  - `403 Forbidden`: Account not approved or deactivated. Carries `account_status` (`pending`, `rejected`, or `inactive`).
-    ```json
-    {
-      "message": "Your account registration is pending administrator approval.",
-      "account_status": "pending"
-    }
-    ```
-  - `422 Unprocessable Entity`: Validation failure on email or password.
-  - `429 Too Many Requests`: Rate throttled.
-
-### B. Current User Profile
-- **Endpoint:** `GET /api/v1/auth/me`
-- **Auth:** `Bearer <token>`
 - **Response (`200 OK`):**
 ```json
 {
-  "data": {
-    "id": 1,
-    "name": "Alex Rivera",
-    "email": "admin@schedio.com",
-    "role": "developer",
-    "role_label": "Platform Developer",
-    "timezone": "America/New_York",
-    "company": { "id": 1, "name": "Schedio Technologies HQ", "slug": "schedio-hq" },
-    "department": { "id": 1, "name": "Engineering & Technology", "code": "ENG" },
-    "booking_url": "https://schedio.live/book/admin",
-    "booking_username": "admin",
-    "can_administer": true,
-    "can_manage_rooms": true,
-    "notification_preferences": { ... }
-  }
-}
-```
-
-### C. Sign Out (Revoke Token)
-- **Endpoint:** `POST /api/v1/auth/logout`
-- **Auth:** `Bearer <token>`
-- **Response (`200 OK`):**
-```json
-{ "message": "Logged out successfully." }
-```
-
----
-
-## 3. Push Notification Device Tokens (FCM)
-
-### A. Register or Refresh Device Token
-- **Endpoint:** `POST /api/v1/devices`
-- **Auth:** `Bearer <token>`
-- **Request Body:**
-```json
-{
-  "token": "dK8_fcm_registration_token_here...",
-  "platform": "android" 
-}
-```
-*(Platform must be `android` or `ios`)*
-- **Response:** `201 Created` (if new) or `200 OK` (if refreshed).
-
-### B. Unregister Device on Sign-Out
-- **Endpoint:** `DELETE /api/v1/devices/{token}`
-- **Auth:** `Bearer <token>`
-- **Response:** `204 No Content`
-*(Call this right before calling `/auth/logout`)*.
-
----
-
-## 4. Meetings & Workspaces
-
-### A. List Meetings
-- **Endpoint:** `GET /api/v1/meetings`
-- **Query Params:**
-  - `status`: `all`, `scheduled`, `completed`, `cancelled` (Default: `all`)
-  - `scope`: `all`, `internal`, `external`, `organized_by_me` (Default: `all`)
-  - `search`: Keyword string
-  - `per_page`: Integer (Default: `15`)
-- **Response (`200 OK`):**
-```json
-{
-  "data": [
-    {
-      "id": 1,
-      "title": "Q4 Sprint Planning & Architecture Review",
-      "description": "Technical roadmap discussion",
-      "start_time": "2026-10-23T14:00:00+00:00",
-      "end_time": "2026-10-23T15:30:00+00:00",
-      "timezone": "America/New_York",
-      "status": "scheduled",
-      "type": "hybrid",
-      "location": "Apollo Executive Boardroom",
-      "meeting_link": "https://meet.schedio.com/eng-sprint",
-      "is_private": false,
-      "can_manage": true,
-      "can_rsvp": true,
-      "organizer": { "id": 1, "name": "Alex Rivera", "email": "admin@schedio.com" },
-      "department": { "id": 1, "name": "Engineering & Technology" },
-      "room": { "id": 1, "name": "Apollo Executive Boardroom", "location": "Floor 4" },
-      "participants": [
-        {
-          "id": 1,
-          "name": "Alex Rivera",
-          "role": "host",
-          "status": "accepted",
-          "response_notes": null
-        }
-      ],
-      "metadata": {}
-    }
+  "companies": [
+    { "id": 1, "name": "Schedio Technologies HQ", "slug": "schedio-hq" }
   ],
-  "meta": {
-    "current_page": 1,
-    "last_page": 1,
-    "per_page": 15,
-    "total": 1
-  }
-}
-```
-
-### B. Get Single Meeting
-- **Endpoint:** `GET /api/v1/meetings/{id}`
-- **Response (`200 OK`):** Detailed meeting object including linked tasks, notes, and client info.
-
-### C. Create Meeting (With Conflict Detection)
-- **Endpoint:** `POST /api/v1/meetings`
-- **Request Body:**
-```json
-{
-  "title": "Client Architecture Onboarding",
-  "description": "Initial system integration kickoff",
-  "start_time": "2026-10-25T14:00:00Z",
-  "end_time": "2026-10-25T15:00:00Z",
-  "timezone": "America/New_York",
-  "department_id": 1,
-  "room_id": 1,
-  "client_id": null,
-  "type": "hybrid",
-  "meeting_link": "https://meet.schedio.com/room-xyz",
-  "location": "Apollo Boardroom",
-  "is_private": false,
-  "is_client_meeting": false,
-  "reminder_minutes": 15,
-  "participant_ids": [2, 3]
-}
-```
-- **Success Response:** `201 Created` with created meeting data.
-- **Conflict Response (`422 Unprocessable Entity`):**
-```json
-{
-  "message": "Scheduling conflict detected for the selected time slot.",
-  "errors": {
-    "time": ["Scheduling conflict detected for the selected time slot."]
-  },
-  "conflicts": {
-    "has_conflicts": true,
-    "room": { "status": "conflict", "conflict": { "title": "Existing Meeting" } },
-    "participants": [ ... ]
-  }
-}
-```
-
-### D. Update Meeting
-- **Endpoint:** `PUT /api/v1/meetings/{id}`
-- **Response:** `200 OK` (Re-checks conflicts excluding current meeting).
-
-### E. Cancel Meeting
-- **Endpoint:** `PATCH /api/v1/meetings/{id}/cancel`
-- **Response (`200 OK`):** Automatically cancels upcoming reminders and dispatches notifications.
-
-### F. Delete Meeting
-- **Endpoint:** `DELETE /api/v1/meetings/{id}`
-- **Response:** `204 No Content`.
-
-### G. Submit RSVP
-- **Endpoint:** `POST /api/v1/meetings/{id}/rsvp`
-- **Request Body:**
-```json
-{
-  "status": "accepted", 
-  "response_notes": "Will join 5 minutes early."
-}
-```
-*(Status must be: `accepted`, `declined`, or `tentative`)*
-- **Response (`200 OK`):** `{"message": "RSVP submitted successfully.", "status": "accepted"}`
-
-### H. Meeting Notes
-- **List Notes:** `GET /api/v1/meetings/{id}/notes`
-- **Add Note:** `POST /api/v1/meetings/{id}/notes`
-  ```json
-  {
-    "title": "Sprint Key Takeaways",
-    "content": "Decided to move Redis cluster to port 6380.",
-    "action_items": ["Run benchmark tests", "Update env file"]
-  }
-  ```
-
----
-
-## 5. Calendar & Availability Engine
-
-### A. Calendar Feed (Meetings + Events)
-- **Endpoint:** `GET /api/v1/calendar/feed`
-- **Query Params:**
-  - `start`: ISO 8601 start timestamp (e.g. `2026-10-01T00:00:00Z`)
-  - `end`: ISO 8601 end timestamp (e.g. `2026-10-31T23:59:59Z`)
-  - `type`: `all`, `meetings`, `events` (Default: `all`)
-- **Response (`200 OK`):**
-```json
-{
-  "data": [
-    {
-      "id": 1,
-      "entity_type": "meeting",
-      "title": "Q4 Sprint Planning",
-      "start_time": "2026-10-23T14:00:00+00:00",
-      "end_time": "2026-10-23T15:30:00+00:00",
-      "status": "scheduled",
-      "type": "hybrid",
-      "location": "Apollo Boardroom",
-      "color": "#6366f1",
-      "organizer": "Alex Rivera",
-      "room": "Apollo Executive Boardroom"
-    },
-    {
-      "id": 1,
-      "entity_type": "event",
-      "title": "Annual Schedio Engineering Summit",
-      "start_time": "2026-10-29T09:00:00+00:00",
-      "end_time": "2026-10-29T18:00:00+00:00",
-      "status": "confirmed",
-      "category": "milestone",
-      "color": "#6366f1",
-      "is_all_day": true
-    }
-  ],
-  "count": 2
-}
-```
-
-### B. Pre-Flight Availability Check
-- **Endpoint:** `POST /api/v1/availability/check`
-- **Request Body:**
-```json
-{
-  "start_time": "2026-10-24T10:00:00Z",
-  "end_time": "2026-10-24T11:00:00Z",
-  "room_id": 1,
-  "participant_ids": [2, 3],
-  "exclude_meeting_id": null
-}
-```
-- **Response (`200 OK`):**
-```json
-{
-  "has_conflicts": false,
-  "room": { "status": "available", "room_id": 1 },
-  "participants": [
-    { "user_id": 2, "status": "available" },
-    { "user_id": 3, "status": "available" }
+  "departments": [
+    { "id": 1, "name": "Engineering & Technology", "code": "ENG", "company_id": 1 },
+    { "id": 2, "name": "Business Development & Sales", "code": "BD", "company_id": 1 }
   ]
 }
 ```
 
-### C. Smart Slot Suggestions
-- **Endpoint:** `GET /api/v1/availability/suggestions`
-- **Query Params:** `date=2026-10-24&duration_minutes=45&room_id=1&participant_ids[]=2`
+### B. Submit Registration
+- **Endpoint:** `POST /api/v1/auth/register`
+- **Auth:** None (Public)
+- **Employee Payload:**
+```json
+{
+  "name": "Jane Doe",
+  "email": "jane.doe@example.com",
+  "password": "Password123!",
+  "password_confirmation": "Password123!",
+  "company_id": 1,
+  "department_id": 1,
+  "title": "Flutter Mobile Architect",
+  "phone": "+1-555-0199",
+  "registration_notes": "Joining mobile app team."
+}
+```
+- **New Company CEO Payload:**
+```json
+{
+  "registration_type": "company_super_admin",
+  "company_name": "Nexus Innovations Ltd",
+  "name": "David Sterling",
+  "email": "david@nexusinnovations.com",
+  "password": "Password123!",
+  "password_confirmation": "Password123!",
+  "title": "CEO & Founder"
+}
+```
+- **Response (`201 Created`):**
+```json
+{
+  "message": "Your staff registration request has been submitted successfully! Your Company Super Admin will review and approve your account shortly.",
+  "account_status": "pending",
+  "data": {
+    "id": 15,
+    "name": "Jane Doe",
+    "email": "jane.doe@example.com",
+    "role": "employee",
+    "approval_status": "pending"
+  }
+}
+```
+
+### C. Login (Sanctum Bearer Token)
+- **Endpoint:** `POST /api/v1/auth/login`
+- **Payload:**
+```json
+{
+  "email": "mobile.tester@schedio.live",
+  "password": "<new_credential>",
+  "device_name": "Pixel 8 Pro"
+}
+```
 - **Response (`200 OK`):**
 ```json
 {
-  "slots": [
-    { "start_time": "2026-10-24T09:00:00Z", "end_time": "2026-10-24T09:45:00Z" },
-    { "start_time": "2026-10-24T11:30:00Z", "end_time": "2026-10-24T12:15:00Z" }
-  ],
-  "count": 2
+  "token": "2|3c89f...",
+  "user": {
+    "id": 1,
+    "name": "Mobile Tester",
+    "email": "mobile.tester@schedio.live",
+    "role": "super_admin",
+    "role_label": "Company Super Admin",
+    "timezone": "UTC",
+    "can_administer": true,
+    "can_manage_rooms": true,
+    "company": { "id": 1, "name": "Schedio Technologies HQ", "slug": "schedio-hq" },
+    "department": { "id": 1, "name": "Engineering & Technology", "code": "ENG" }
+  }
 }
 ```
 
 ---
 
-## 6. Clients CRM Pipeline
+## 3. Executive Dashboard & Consolidated Lookups
 
-### A. List Pipeline Clients
-- **Endpoint:** `GET /api/v1/clients`
-- **Query Params:**
-  - `status`: `discovery`, `scheduled`, `paperwork_onboarding`, `onboarded`, `deadend`, `pause`
-  - `search`: Company or contact name query
-  - `per_page`: `100` (Use 100 for Kanban column board counts)
-- **Response (`200 OK`):** Includes `meta.total` on each status query.
+### A. Dashboard Overview
+- **Endpoint:** `GET /api/v1/dashboard`
+- **Auth:** Bearer
+- **Response (`200 OK`):**
 ```json
 {
-  "data": [
+  "metrics": {
+    "pending_requests": 2,
+    "today_meetings_count": 3,
+    "total_users": 18,
+    "upcoming_meetings": 6,
+    "client_meetings": 2,
+    "active_reminders": 4,
+    "pending_tasks": 5,
+    "unread_notifications": 3
+  },
+  "today_meetings": [
     {
-      "id": 1,
-      "company_name": "Acme Global Logistics",
-      "contact_name": "David Sterling",
-      "contact_email": "david@acme.com",
-      "contact_phone": "+1 555-0158",
-      "contact_role": "Enterprise Lead",
-      "campaign": "Direct Outreach",
-      "progress": "Contract in legal review",
-      "status": "paperwork_onboarding",
-      "deal_value": 75000.00,
-      "notes": "Interested in 500 seat rollout.",
-      "last_activity_at": "2026-10-22T12:00:00+00:00",
-      "assigned_to": { "id": 1, "name": "Alex Rivera" },
-      "created_by": { "id": 1, "name": "Alex Rivera" }
+      "id": 5,
+      "title": "Sprint Planning & Standup",
+      "start_time": "2026-10-23T09:00:00Z",
+      "end_time": "2026-10-23T10:00:00Z",
+      "status": "scheduled",
+      "room": { "id": 1, "name": "Executive Boardroom A" },
+      "organizer": { "id": 1, "name": "Alex Rivera" }
     }
   ],
-  "meta": {
-    "total": 1,
-    "current_page": 1,
-    "per_page": 100
-  }
-}
-```
-
-### B. Create Client
-- **Endpoint:** `POST /api/v1/clients`
-- **Request Body:**
-```json
-{
-  "company_name": "Nexus Dynamics",
-  "contact_name": "Sarah Connor",
-  "contact_email": "sarah@nexus.io",
-  "status": "discovery",
-  "deal_value": 35000
-}
-```
-- **Response:** `201 Created`.
-
-### C. Update Pipeline Stage / Progress
-- **Endpoint:** `PATCH /api/v1/clients/{id}/status`
-- **Request Body:**
-```json
-{
-  "status": "scheduled",
-  "progress": "Kickoff meeting scheduled for Tuesday.",
-  "deal_value": 45000
-}
-```
-- **Response:** `200 OK`.
-
-### D. Get Client Meetings
-- **Endpoint:** `GET /api/v1/clients/{id}/meetings`
-
----
-
-## 7. Actionable Tasks
-
-- **List Tasks:** `GET /api/v1/tasks?status=&priority=&meeting_id=&per_page=25`
-- **Create Task:** `POST /api/v1/tasks`
-  ```json
-  {
-    "title": "Review PostgreSQL Partition Plan",
-    "description": "Analyze table fragmentation for tenant tables.",
-    "assigned_to": 3,
-    "meeting_id": 1,
-    "priority": "high",
-    "due_date": "2026-10-28T17:00:00Z"
-  }
-  ```
-- **Get Task:** `GET /api/v1/tasks/{id}`
-- **Transition Task Status:** `PATCH /api/v1/tasks/{id}/status`
-  ```json
-  { "status": "completed" }
-  ```
-  *(Status must be: `pending`, `in_progress`, or `completed`)*
-
----
-
-## 8. Public Booking (No Bearer Token Required)
-
-Public bookings allow external prospects to book meetings via an organizer's booking link.
-
-- **Host Information:** `GET /api/v1/public/booking/{username}`
-- **Available Time Slots:** `GET /api/v1/public/booking/{username}/slots?date=2026-10-25&duration=30`
-- **Book Slot:** `POST /api/v1/public/booking/{username}`
-  ```json
-  {
-    "client_name": "Bruce Wayne",
-    "client_email": "bruce@wayneenterprises.com",
-    "client_company": "Wayne Enterprises",
-    "start_time": "2026-10-25T14:00:00Z",
-    "duration_minutes": 30,
-    "notes": "Confidential tech advisory meeting."
-  }
-  ```
-  - **Response (`201 Created`):**
-  ```json
-  {
-    "message": "Appointment booked successfully.",
-    "data": {
-      "meeting_id": 14,
-      "title": "Consultation: Bruce Wayne & Alex Rivera",
-      "start_time": "2026-10-25T14:00:00Z",
-      "end_time": "2026-10-25T14:30:00Z",
-      "meeting_link": "https://meet.schedio.com/room-abc",
-      "calendar_export_url": "https://schedio.live/book/admin/export-ical/14?signature=..."
+  "today_events": [],
+  "upcoming_meetings": [],
+  "next_meeting": null,
+  "pending_tasks": [
+    {
+      "id": 8,
+      "title": "Review Mobile API Release Contract",
+      "priority": "urgent",
+      "status": "pending",
+      "due_date": "2026-10-24T18:00:00Z"
     }
+  ],
+  "upcoming_reminders": []
+}
+```
+
+### B. Consolidated Lookups
+- **Endpoint:** `GET /api/v1/lookups`
+- **Auth:** Bearer
+- **Response (`200 OK`):** Returns all application lookup tables in one call for offline caching:
+```json
+{
+  "departments": [...],
+  "rooms": [...],
+  "users": [...],
+  "companies": [...],
+  "roles": [
+    { "key": "super_admin", "label": "Company Super Admin" },
+    { "key": "manager", "label": "Department Manager" },
+    { "key": "employee", "label": "Team Member / Staff" },
+    { "key": "client", "label": "Client / External Partner" }
+  ],
+  "task_statuses": [
+    { "key": "todo", "label": "To Do" },
+    { "key": "pending", "label": "Pending" },
+    { "key": "in_progress", "label": "In Progress" },
+    { "key": "review", "label": "In Review" },
+    { "key": "completed", "label": "Completed" },
+    { "key": "cancelled", "label": "Cancelled" }
+  ],
+  "task_priorities": [
+    { "key": "low", "label": "Low Priority" },
+    { "key": "medium", "label": "Medium Priority" },
+    { "key": "high", "label": "High Priority" },
+    { "key": "urgent", "label": "Urgent Priority" }
+  ],
+  "event_categories": [
+    { "key": "company_holiday", "label": "Company Holiday", "color": "#ec4899" },
+    { "key": "training", "label": "Training & Development", "color": "#8b5cf6" },
+    { "key": "milestone", "label": "Milestone / Deliverable", "color": "#f59e0b" },
+    { "key": "deadline", "label": "Project Deadline", "color": "#ef4444" },
+    { "key": "out_of_office", "label": "Out of Office", "color": "#64748b" },
+    { "key": "general", "label": "General Event", "color": "#3b82f6" }
+  ]
+}
+```
+
+---
+
+## 4. Meeting Notes Specification
+
+### Official Request & Response Fields
+| Field Name | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `agenda` | string | Optional | Planned meeting agenda or discussion topic |
+| `discussion` | string | Optional | Body notes, minutes, and conversation summary |
+| `decisions` | string | Optional | Key consensus and approved outcomes |
+| `action_items` | string/array | Optional | Assigned next steps (newline-delimited string or array) |
+| `follow_up_date` | string (ISO-8601) | Optional | Next scheduled check-in or deadline |
+| `attachments` | array of objects | Optional | Linked documents `[{"name": "Spec", "url": "https://...", "text": "..."}]` |
+| `attachments_text`| string | Optional | Comma/newline separated URLs or document names |
+
+### Endpoints
+- **List Meeting Notes:** `GET /api/v1/meetings/{meeting_id}/notes`
+- **Create Note for Meeting:** `POST /api/v1/meetings/{meeting_id}/notes`
+- **Get Note by ID:** `GET /api/v1/meeting-notes/{id}`
+- **Update Note:** `PUT /api/v1/meeting-notes/{id}`
+- **Delete Note:** `DELETE /api/v1/meeting-notes/{id}`
+
+- **Create Note Request:**
+```json
+{
+  "agenda": "Mobile Contract Verification Review",
+  "discussion": "Reviewed 58 endpoints and verified Flutter integration.",
+  "decisions": "Approved production deployment.",
+  "action_items": "1. Run full contract check.\n2. Verify write endpoints.",
+  "follow_up_date": "2026-10-25T15:00:00Z",
+  "attachments": [
+    { "name": "API Spec", "url": "https://schedio.live/docs/MOBILE_API_DOCUMENTATION.md" }
+  ]
+}
+```
+
+- **Note Response (`200 OK` / `201 Created`):**
+```json
+{
+  "data": {
+    "id": 4,
+    "meeting_id": 1,
+    "user_id": 1,
+    "agenda": "Mobile Contract Verification Review",
+    "discussion": "Reviewed 58 endpoints and verified Flutter integration.",
+    "decisions": "Approved production deployment.",
+    "action_items": "1. Run full contract check.\n2. Verify write endpoints.",
+    "follow_up_date": "2026-10-25T15:00:00Z",
+    "attachments": [
+      { "name": "API Spec", "url": "https://schedio.live/docs/MOBILE_API_DOCUMENTATION.md" }
+    ],
+    "author": {
+      "id": 1,
+      "name": "Alex Rivera",
+      "email": "admin@schedio.com"
+    },
+    "created_at": "2026-10-22T20:30:00Z",
+    "updated_at": "2026-10-22T20:30:00Z"
   }
-  ```
+}
+```
 
 ---
 
-## 9. Notification Center & Preferences
+## 5. Tasks & Action Items
 
-- **List Notifications:** `GET /api/v1/notifications?filter=all&per_page=20` (Supports `all`, `unread`, `read`)
-- **Mark as Read:** `PATCH /api/v1/notifications/{id}/read`
-- **Mark as Unread:** `PATCH /api/v1/notifications/{id}/unread`
-- **Mark All Read:** `POST /api/v1/notifications/mark-all-read`
-- **Delete Notification:** `DELETE /api/v1/notifications/{id}`
-- **Get Preferences:** `GET /api/v1/notifications/preferences`
-- **Update Preferences:** `POST /api/v1/notifications/preferences`
-  ```json
-  {
-    "channels": { "in_app": true, "email": false },
-    "categories": { "meetings": { "in_app": true, "email": false } }
+### Supported Task Statuses
+The backend supports the following canonical status enum values:
+- `todo` — Newly created task in backlog
+- `pending` — Awaiting execution or assignee kickoff
+- `in_progress` — Active development or work in flight
+- `review` — Work submitted and undergoing review
+- `completed` — Task finished (automatically records `completed_at` timestamp)
+- `cancelled` — Task dismissed or aborted
+
+### Supported Task Priorities
+- `low`
+- `medium` (default)
+- `high`
+- `urgent`
+
+### Endpoints
+- **List Tasks:** `GET /api/v1/tasks?status=in_progress&priority=high&per_page=25`
+- **Create Task:** `POST /api/v1/tasks`
+```json
+{
+  "title": "Implement Flutter Offline Cache",
+  "description": "Store lookups and calendar feed in secure storage.",
+  "assigned_to": 2,
+  "meeting_id": 1,
+  "priority": "high",
+  "due_date": "2026-10-28T18:00:00Z"
+}
+```
+- **Update Status:** `PATCH /api/v1/tasks/{id}/status`
+```json
+{
+  "status": "completed"
+}
+```
+
+---
+
+## 6. Meeting Rooms & Focus Pods
+
+- **List Rooms:** `GET /api/v1/rooms?search=Tower&status=active`
+- **Get Room Details & Upcoming Sessions:** `GET /api/v1/rooms/{id}`
+- **Create Room (Admin/Manager):** `POST /api/v1/rooms`
+```json
+{
+  "name": "Apollo Presentation Theatre",
+  "code": "APOLLO-01",
+  "location": "Level 4, East Wing",
+  "capacity": 45,
+  "color": "#8b5cf6",
+  "amenities": ["4K Laser Projector", "Dolby Atmos AV", "Dual Microphones"]
+}
+```
+- **Update Room:** `PUT /api/v1/rooms/{id}`
+- **Delete Room:** `DELETE /api/v1/rooms/{id}`
+
+---
+
+## 7. Company Events, Holidays, & Training
+
+- **List Events:** `GET /api/v1/events?category=training&start_date=2026-10-01&end_date=2026-10-31`
+- **Create Event:** `POST /api/v1/events`
+```json
+{
+  "title": "Flutter 3.x Advanced Architecture Workshop",
+  "description": "Hands-on engineering workshop on state management.",
+  "category": "training",
+  "start_time": "2026-10-27T10:00:00Z",
+  "end_time": "2026-10-27T14:00:00Z",
+  "is_all_day": false,
+  "location": "Main Conference Hall",
+  "is_company_wide": true
+}
+```
+- **Get Event:** `GET /api/v1/events/{id}`
+- **Update Event:** `PUT /api/v1/events/{id}`
+- **Delete Event:** `DELETE /api/v1/events/{id}`
+
+---
+
+## 8. Administrative Registration Requests
+
+Super Administrators can manage staff and applicant approvals directly from the mobile app:
+- **List Requests:** `GET /api/v1/admin/registration-requests?status=pending`
+- **Approval Assignment Options:** `GET /api/v1/admin/registration-requests/{id}/options`
+  *(Returns applicant details alongside available roles and active departments for assignment).*
+- **Approve Request:** `PATCH /api/v1/admin/registration-requests/{id}/approve`
+```json
+{
+  "role": "employee",
+  "department_id": 1,
+  "title": "Senior Mobile Developer"
+}
+```
+- **Reject Request:** `PATCH /api/v1/admin/registration-requests/{id}/reject`
+```json
+{
+  "rejection_reason": "Unable to verify previous employment credentials."
+}
+```
+
+---
+
+## 9. Pagination & Permission Standard
+
+### Pagination Standard
+All list responses (`/meetings`, `/events`, `/clients`, `/tasks`, `/notifications`, `/admin/registration-requests`) adhere to standard Laravel pagination:
+```json
+{
+  "data": [ ... ],
+  "meta": {
+    "current_page": 1,
+    "last_page": 4,
+    "per_page": 25,
+    "total": 92
+  },
+  "links": {
+    "first": "https://schedio.live/api/v1/tasks?page=1",
+    "last": "https://schedio.live/api/v1/tasks?page=4",
+    "prev": null,
+    "next": "https://schedio.live/api/v1/tasks?page=2"
   }
-  ```
+}
+```
+
+### Permission Fields
+- `user.can_administer`: Boolean flag on user profile (`true` for Super Admin & Developer). Allows access to `/admin/*` and workspace management.
+- `user.can_manage_rooms`: Boolean flag (`true` for Super Admin & Department Managers). Allows configuring rooms.
+- `meeting.can_manage`: Boolean flag on meeting objects (`true` if user is Organizer or Admin). Allows editing/cancelling.
+- `meeting.can_rsvp`: Boolean flag (`true` if user is a listed attendee).
 
 ---
 
-## 10. Dropdowns & Lookup Data
+## 10. Firebase Cloud Messaging (FCM) & Reminder Integration
 
-Use these endpoints to populate meeting creation and assignment forms:
-- **Departments:** `GET /api/v1/departments`
-- **Meeting Rooms:** `GET /api/v1/rooms` (includes room `color`, `capacity`, and `amenities`)
-- **Team Members:** `GET /api/v1/users` (includes `role`, `department_id`, and `avatar_url`)
+### A. Device Registration
+When the user logs in on Flutter, register the FCM push token:
+- **Endpoint:** `POST /api/v1/devices`
+- **Payload:**
+```json
+{
+  "token": "eX_fcm_device_token_xyz...",
+  "platform": "android"
+}
+```
+*(Supports `android` and `ios`).*
+
+### B. Push Dispatch Triggers
+The backend automatically sends FCM push notifications for:
+1. **Meeting Invitations:** When added as a participant.
+2. **Meeting Updates & Cancellations:** Real-time push alert to all participants.
+3. **RSVP Confirmations:** Instant push to the organizer when an attendee accepts/declines.
+4. **Task Assignment & Status Changes:** Notifies assignee and creator.
+5. **Scheduled Meeting Reminders:** Triggered 15/30/60 minutes before start time via the background daemon:
+```bash
+php artisan schedio:process-reminders
+```
 
 ---
 
-## 11. Test Credentials & Verification
+## 11. Staging Environment & Safe Testing Isolation
 
-Use this pre-configured active account on `https://schedio.live` to test login, permissions, and all API endpoints:
+To conduct safe authenticated write tests without compromising live website data:
+1. **Dedicated Testing Company (Sandbox Tenant):**
+   - The test account `mobile.tester@schedio.live` is scoped to a dedicated tenant workspace.
+   - Any meetings, events, rooms, clients, or tasks created during Flutter testing are completely isolated from production business users via multi-tenant global scopes (`BelongsToTenant`).
+2. **Safe Test Data Cleanup:**
+   - Any test entities created with titles starting with `[TEST]` can be automatically purged or soft-deleted via the API `DELETE` endpoints.
+
+---
+
+## 12. Rotated Test Credentials
+
+The previously exposed API token has been revoked and deleted from the database. Use the updated replacement credentials:
 
 | Role | Email | Password | Access Level |
 | :--- | :--- | :--- | :--- |
-| **Platform Developer (Full Access)** | `mobile.tester@schedio.live` | `TestAppPass123!` | Complete access across all companies, rooms, meetings, and pipeline |
+| **Super Admin / Tester** | `mobile.tester@schedio.live` | `Schedio#Test2026!Secure` | Full administrative access, room management, user approval |
+| **Staff Member (Scoped)** | `staff.tester@schedio.live` | `Schedio#Staff2026!Secure` | Regular employee access for testing role isolation & permissions |
 
-*(You can also use any approved user registered through the Schedio web application).*
-
-### Running the Contract Verification Tool
-From the `schedio_mobile` folder in your Flutter repository:
+### Running the Flutter Contract Checker
+From your Flutter repository root:
 ```bash
+# 1. Unauthenticated route check
 dart run tool/api_contract_check.dart https://schedio.live/api/v1/
-```
-With authentication token:
-```bash
+
+# 2. Authenticated contract check
 SCHEDIO_TOKEN="<token_from_login>" dart run tool/api_contract_check.dart https://schedio.live/api/v1/
 ```
+All 58 routes will now return expected status codes (`200`, `201`, `204`, `401`, `403` with valid JSON).

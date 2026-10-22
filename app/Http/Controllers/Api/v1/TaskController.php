@@ -141,7 +141,7 @@ class TaskController extends Controller
         $this->authorizeTaskAccess($task, $request->user());
 
         $validated = $request->validate([
-            'status' => ['required', 'string', 'in:pending,in_progress,completed'],
+            'status' => ['required', 'string', 'in:todo,pending,in_progress,review,completed,cancelled'],
         ]);
 
         $task->update([

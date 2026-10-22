@@ -1,13 +1,18 @@
 <?php
 
+use App\Http\Controllers\Api\v1\AdminRegistrationController;
 use App\Http\Controllers\Api\v1\AuthController;
 use App\Http\Controllers\Api\v1\CalendarController;
 use App\Http\Controllers\Api\v1\ClientController;
+use App\Http\Controllers\Api\v1\DashboardController;
 use App\Http\Controllers\Api\v1\DeviceController;
+use App\Http\Controllers\Api\v1\EventController;
 use App\Http\Controllers\Api\v1\LookupController;
 use App\Http\Controllers\Api\v1\MeetingController;
+use App\Http\Controllers\Api\v1\MeetingNoteController;
 use App\Http\Controllers\Api\v1\NotificationController;
 use App\Http\Controllers\Api\v1\PublicBookingController;
+use App\Http\Controllers\Api\v1\RoomController;
 use App\Http\Controllers\Api\v1\TaskController;
 use Illuminate\Support\Facades\Route;
 
@@ -20,8 +25,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
 
-    // 1. Public Authentication & Booking Endpoints (No Bearer Token)
+    // 1. Public Authentication & Registration Endpoints (No Bearer Token)
     Route::post('/auth/login', [AuthController::class, 'login']);
+    Route::post('/auth/register', [AuthController::class, 'register']);
+    Route::get('/auth/registration-options', [AuthController::class, 'registrationOptions']);
 
     Route::prefix('public/booking')->group(function () {
         Route::get('/{username}', [PublicBookingController::class, 'show']);
@@ -35,6 +42,10 @@ Route::prefix('v1')->group(function () {
         // Session & Current User
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
+
+        // Executive Dashboard & Consolidated Lookups
+        Route::get('/dashboard', [DashboardController::class, 'index']);
+        Route::get('/lookups', [LookupController::class, 'index']);
 
         // Push Notification Device Tokens
         Route::post('/devices', [DeviceController::class, 'store']);
@@ -52,6 +63,23 @@ Route::prefix('v1')->group(function () {
         // Meeting Notes
         Route::get('/meetings/{meeting}/notes', [MeetingController::class, 'notes']);
         Route::post('/meetings/{meeting}/notes', [MeetingController::class, 'storeNote']);
+        Route::get('/meeting-notes/{id}', [MeetingNoteController::class, 'show']);
+        Route::put('/meeting-notes/{id}', [MeetingNoteController::class, 'update']);
+        Route::delete('/meeting-notes/{id}', [MeetingNoteController::class, 'destroy']);
+
+        // Meeting Rooms & Focus Pods
+        Route::get('/rooms', [RoomController::class, 'index']);
+        Route::post('/rooms', [RoomController::class, 'store']);
+        Route::get('/rooms/{room}', [RoomController::class, 'show']);
+        Route::put('/rooms/{room}', [RoomController::class, 'update']);
+        Route::delete('/rooms/{room}', [RoomController::class, 'destroy']);
+
+        // Company Events, Holidays, & Training
+        Route::get('/events', [EventController::class, 'index']);
+        Route::post('/events', [EventController::class, 'store']);
+        Route::get('/events/{event}', [EventController::class, 'show']);
+        Route::put('/events/{event}', [EventController::class, 'update']);
+        Route::delete('/events/{event}', [EventController::class, 'destroy']);
 
         // Calendar & Availability Engine
         Route::get('/calendar/feed', [CalendarController::class, 'feed']);
@@ -82,9 +110,14 @@ Route::prefix('v1')->group(function () {
         Route::get('/notifications/preferences', [NotificationController::class, 'getPreferences']);
         Route::post('/notifications/preferences', [NotificationController::class, 'updatePreferences']);
 
-        // Core Lookups (Departments, Rooms, Team Users)
+        // Administrative Registration Requests
+        Route::get('/admin/registration-requests', [AdminRegistrationController::class, 'index']);
+        Route::get('/admin/registration-requests/{id}/options', [AdminRegistrationController::class, 'options']);
+        Route::patch('/admin/registration-requests/{id}/approve', [AdminRegistrationController::class, 'approve']);
+        Route::patch('/admin/registration-requests/{id}/reject', [AdminRegistrationController::class, 'reject']);
+
+        // Core Lookups
         Route::get('/departments', [LookupController::class, 'departments']);
-        Route::get('/rooms', [LookupController::class, 'rooms']);
         Route::get('/users', [LookupController::class, 'users']);
     });
 });

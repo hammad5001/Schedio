@@ -267,4 +267,284 @@ class MobileApiV1Test extends TestCase
             'title' => 'Consultation: Michael Scott & Alex Rivera',
         ]);
     }
+
+    public function test_registration_options_and_register_flow_via_api(): void
+    {
+        // 1. Get registration options (public)
+        $optionsResponse = $this->getJson('/api/v1/auth/registration-options');
+        $optionsResponse->assertStatus(200);
+        $optionsResponse->assertJsonStructure([
+            'companies',
+            'departments',
+        ]);
+        $this->assertNotEmpty($optionsResponse->json('companies'));
+
+        // 2. Submit new employee registration
+        $registerResponse = $this->postJson('/api/v1/auth/register', [
+            'name' => 'Sara Connor',
+            'email' => 'sara.connor@example.com',
+            'password' => 'SecurePass123!',
+            'password_confirmation' => 'SecurePass123!',
+            'title' => 'Security Specialist',
+            'registration_notes' => 'Joining cyber defence team.',
+        ]);
+
+        $registerResponse->assertStatus(201);
+        $registerResponse->assertJson([
+            'account_status' => 'pending',
+        ]);
+        $this->assertDatabaseHas('users', [
+            'email' => 'sara.connor@example.com',
+            'approval_status' => 'pending',
+        ]);
+    }
+
+    public function test_dashboard_and_lookups_endpoints(): void
+    {
+        $user = User::where('email', 'admin@schedio.com')->first();
+        $token = $user->createToken('test_device')->plainTextToken;
+
+        // 1. Dashboard
+        $dashResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/dashboard');
+
+        $dashResponse->assertStatus(200);
+        $dashResponse->assertJsonStructure([
+            'metrics' => [
+                'today_meetings_count',
+                'total_users',
+                'upcoming_meetings',
+                'active_reminders',
+                'pending_tasks',
+            ],
+            'today_meetings',
+            'today_events',
+            'upcoming_meetings',
+            'pending_tasks',
+            'upcoming_reminders',
+        ]);
+
+        // 2. Lookups
+        $lookupResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/lookups');
+
+        $lookupResponse->assertStatus(200);
+        $lookupResponse->assertJsonStructure([
+            'departments',
+            'rooms',
+            'users',
+            'roles',
+            'task_statuses',
+            'task_priorities',
+            'event_categories',
+        ]);
+    }
+
+    public function test_meeting_notes_crud_via_api(): void
+    {
+        $user = User::where('email', 'admin@schedio.com')->first();
+        $token = $user->createToken('test_device')->plainTextToken;
+        $meeting = Meeting::first();
+
+        // 1. Create meeting note
+        $createResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/meetings/{$meeting->id}/notes", [
+                'agenda' => 'Quarterly Q4 Review',
+                'discussion' => 'Reviewed OKRs and infrastructure plans.',
+                'decisions' => 'Approved Flutter mobile release candidate.',
+                'action_items' => 'Deploy API v1 and verify 58 routes.',
+            ]);
+
+        $createResponse->assertStatus(201);
+        $noteId = $createResponse->json('data.id');
+        $this->assertNotEmpty($noteId);
+
+        // 2. Get meeting note by ID
+        $getResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/meeting-notes/{$noteId}");
+
+        $getResponse->assertStatus(200);
+        $this->assertEquals('Quarterly Q4 Review', $getResponse->json('data.agenda'));
+
+        // 3. Update meeting note
+        $updateResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/v1/meeting-notes/{$noteId}", [
+                'agenda' => 'Quarterly Q4 Review - Finalized',
+                'decisions' => 'Mobile API contract 100% verified.',
+            ]);
+
+        $updateResponse->assertStatus(200);
+        $this->assertEquals('Quarterly Q4 Review - Finalized', $updateResponse->json('data.agenda'));
+
+        // 4. Delete meeting note
+        $deleteResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->deleteJson("/api/v1/meeting-notes/{$noteId}");
+
+        $deleteResponse->assertStatus(200);
+        $this->assertSoftDeleted('meeting_notes', ['id' => $noteId]);
+    }
+
+    public function test_rooms_crud_and_show_via_api(): void
+    {
+        $user = User::where('email', 'admin@schedio.com')->first();
+        $token = $user->createToken('test_device')->plainTextToken;
+
+        // 1. List rooms
+        $indexResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/rooms');
+
+        $indexResponse->assertStatus(200);
+        $this->assertNotEmpty($indexResponse->json('data'));
+
+        // 2. Create room
+        $createResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/v1/rooms', [
+                'name' => 'Zeus Boardroom',
+                'code' => 'ZEUS-01',
+                'location' => 'Executive Tower 10th Floor',
+                'capacity' => 20,
+                'amenities' => ['4K Projector', 'Whiteboard', 'Polycom AV'],
+            ]);
+
+        $createResponse->assertStatus(201);
+        $roomId = $createResponse->json('data.id');
+
+        // 3. Show room
+        $showResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/rooms/{$roomId}");
+
+        $showResponse->assertStatus(200);
+        $this->assertEquals('Zeus Boardroom', $showResponse->json('data.name'));
+
+        // 4. Update room
+        $updateResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/v1/rooms/{$roomId}", [
+                'name' => 'Zeus Executive Boardroom',
+                'code' => 'ZEUS-01',
+                'location' => 'Executive Tower 10th Floor',
+                'capacity' => 25,
+            ]);
+
+        $updateResponse->assertStatus(200);
+        $this->assertEquals('Zeus Executive Boardroom', $updateResponse->json('data.name'));
+
+        // 5. Delete room
+        $deleteResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->deleteJson("/api/v1/rooms/{$roomId}");
+
+        $deleteResponse->assertStatus(200);
+        $this->assertSoftDeleted('rooms', ['id' => $roomId]);
+    }
+
+    public function test_events_crud_via_api(): void
+    {
+        $user = User::where('email', 'admin@schedio.com')->first();
+        $token = $user->createToken('test_device')->plainTextToken;
+
+        // 1. Create event
+        $createResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/v1/events', [
+                'title' => 'Annual Strategy Summit 2026',
+                'description' => 'Global company alignment and product roadmaps.',
+                'category' => 'milestone',
+                'start_time' => now()->addDays(10)->setTime(9, 0)->toIso8601String(),
+                'end_time' => now()->addDays(10)->setTime(18, 0)->toIso8601String(),
+                'location' => 'Main Auditorium & Virtual Stream',
+                'is_company_wide' => true,
+            ]);
+
+        $createResponse->assertStatus(201);
+        $eventId = $createResponse->json('data.id');
+
+        // 2. List events
+        $indexResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/events');
+
+        $indexResponse->assertStatus(200);
+        $this->assertNotEmpty($indexResponse->json('data'));
+
+        // 3. Show event
+        $showResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/events/{$eventId}");
+
+        $showResponse->assertStatus(200);
+        $this->assertEquals('Annual Strategy Summit 2026', $showResponse->json('data.title'));
+
+        // 4. Update event
+        $updateResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/v1/events/{$eventId}", [
+                'title' => 'Annual Strategy Summit 2026 (Updated)',
+                'category' => 'milestone',
+                'start_time' => now()->addDays(10)->setTime(9, 30)->toIso8601String(),
+                'end_time' => now()->addDays(10)->setTime(18, 0)->toIso8601String(),
+            ]);
+
+        $updateResponse->assertStatus(200);
+        $this->assertEquals('Annual Strategy Summit 2026 (Updated)', $updateResponse->json('data.title'));
+
+        // 5. Delete event
+        $deleteResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->deleteJson("/api/v1/events/{$eventId}");
+
+        $deleteResponse->assertStatus(200);
+        $this->assertSoftDeleted('events', ['id' => $eventId]);
+    }
+
+    public function test_admin_registration_requests_management_via_api(): void
+    {
+        $admin = User::where('email', 'admin@schedio.com')->first();
+        $token = $admin->createToken('test_device')->plainTextToken;
+
+        // Create a pending applicant
+        $applicant = User::create([
+            'company_id' => $admin->company_id,
+            'name' => 'David Miller',
+            'email' => 'david.m@schedio.com',
+            'password' => bcrypt('Secret123!'),
+            'role' => 'employee',
+            'approval_status' => 'pending',
+            'registration_notes' => 'Software developer candidate.',
+            'is_active' => true,
+        ]);
+
+        // 1. List requests
+        $listResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/admin/registration-requests?status=pending');
+
+        $listResponse->assertStatus(200);
+        $listResponse->assertJsonStructure(['data', 'counts']);
+
+        // 2. Get options for approving
+        $optionsResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson("/api/v1/admin/registration-requests/{$applicant->id}/options");
+
+        $optionsResponse->assertStatus(200);
+        $optionsResponse->assertJsonStructure(['roles', 'departments']);
+
+        // 3. Approve applicant
+        $approveResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson("/api/v1/admin/registration-requests/{$applicant->id}/approve", [
+                'role' => 'employee',
+                'title' => 'Senior Backend Engineer',
+            ]);
+
+        $approveResponse->assertStatus(200);
+        $this->assertDatabaseHas('users', [
+            'id' => $applicant->id,
+            'approval_status' => 'approved',
+            'title' => 'Senior Backend Engineer',
+        ]);
+
+        // 4. Reject applicant
+        $rejectResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson("/api/v1/admin/registration-requests/{$applicant->id}/reject", [
+                'rejection_reason' => 'Background verification inconclusive.',
+            ]);
+
+        $rejectResponse->assertStatus(200);
+        $this->assertDatabaseHas('users', [
+            'id' => $applicant->id,
+            'approval_status' => 'rejected',
+        ]);
+    }
 }

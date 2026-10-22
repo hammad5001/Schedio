@@ -403,19 +403,24 @@ class MeetingController extends Controller
     {
         $this->authorizeAccess($meeting, $request->user());
 
-        $notes = $meeting->notes()->with('user')->latest()->get();
+        $notes = $meeting->notes()->with('author')->latest()->get();
 
         return response()->json([
             'data' => $notes->map(fn($n) => [
                 'id' => $n->id,
                 'meeting_id' => $n->meeting_id,
-                'title' => $n->title,
-                'content' => $n->content,
-                'action_items' => $n->action_items ?: [],
-                'author' => [
-                    'id' => $n->user->id,
-                    'name' => $n->user->name,
-                ],
+                'user_id' => $n->user_id,
+                'agenda' => $n->agenda,
+                'discussion' => $n->discussion,
+                'decisions' => $n->decisions,
+                'action_items' => $n->action_items,
+                'follow_up_date' => $n->follow_up_date?->toIso8601String(),
+                'attachments' => $n->attachments ?: [],
+                'author' => $n->author ? [
+                    'id' => $n->author->id,
+                    'name' => $n->author->name,
+                    'email' => $n->author->email,
+                ] : null,
                 'created_at' => $n->created_at?->toIso8601String(),
                 'updated_at' => $n->updated_at?->toIso8601String(),
             ]),
@@ -430,27 +435,46 @@ class MeetingController extends Controller
         $this->authorizeAccess($meeting, $request->user());
 
         $validated = $request->validate([
-            'title' => ['required', 'string', 'max:255'],
-            'content' => ['required', 'string'],
-            'action_items' => ['nullable', 'array'],
+            'agenda' => ['nullable', 'string'],
+            'title' => ['nullable', 'string', 'max:255'],
+            'discussion' => ['nullable', 'string'],
+            'content' => ['nullable', 'string'],
+            'decisions' => ['nullable', 'string'],
+            'action_items' => ['nullable'],
+            'follow_up_date' => ['nullable', 'date'],
+            'attachments' => ['nullable', 'array'],
         ]);
+
+        $agenda = $validated['agenda'] ?? ($validated['title'] ?? null);
+        $discussion = $validated['discussion'] ?? ($validated['content'] ?? null);
+        $actionItems = is_array($validated['action_items'] ?? null)
+            ? implode("\n", $validated['action_items'])
+            : ($validated['action_items'] ?? null);
 
         $note = MeetingNote::create([
             'company_id' => $request->user()->company_id,
             'meeting_id' => $meeting->id,
             'user_id' => $request->user()->id,
-            'title' => $validated['title'],
-            'content' => $validated['content'],
-            'action_items' => $validated['action_items'] ?? null,
+            'agenda' => $agenda,
+            'discussion' => $discussion,
+            'decisions' => $validated['decisions'] ?? null,
+            'action_items' => $actionItems,
+            'follow_up_date' => !empty($validated['follow_up_date']) ? Carbon::parse($validated['follow_up_date']) : null,
+            'attachments' => $validated['attachments'] ?? null,
         ]);
 
         return response()->json([
             'message' => 'Meeting note saved.',
             'data' => [
                 'id' => $note->id,
-                'title' => $note->title,
-                'content' => $note->content,
-                'action_items' => $note->action_items ?: [],
+                'meeting_id' => $note->meeting_id,
+                'user_id' => $note->user_id,
+                'agenda' => $note->agenda,
+                'discussion' => $note->discussion,
+                'decisions' => $note->decisions,
+                'action_items' => $note->action_items,
+                'follow_up_date' => $note->follow_up_date?->toIso8601String(),
+                'attachments' => $note->attachments ?: [],
                 'created_at' => $note->created_at?->toIso8601String(),
             ],
         ], 201);
