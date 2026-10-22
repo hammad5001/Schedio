@@ -16,6 +16,7 @@ class EnsureDeveloper
      */
     public function handle(Request $request, Closure $next): Response
     {
+        /** @var \App\Models\User|null $user */
         $user = Auth::user();
 
         if (! $user || ! $user->isDeveloper()) {

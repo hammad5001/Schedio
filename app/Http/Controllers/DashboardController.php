@@ -22,6 +22,7 @@ class DashboardController extends Controller
      */
     public function index(Request $request): View
     {
+        /** @var User $user */
         $user = Auth::user();
         $today = Carbon::today();
 

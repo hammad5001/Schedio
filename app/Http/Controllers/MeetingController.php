@@ -24,6 +24,7 @@ class MeetingController extends Controller
      */
     public function index(Request $request): View
     {
+        /** @var User $user */
         $user = Auth::user();
         $status = $request->query('status', 'all');
         $scope = $request->query('scope', 'all'); // all, internal, external, organized_by_me
@@ -91,6 +92,7 @@ class MeetingController extends Controller
      */
     public function create(): View
     {
+        /** @var User $user */
         $user = Auth::user();
         $departments = Department::where('is_active', true)->orderBy('name')->get();
         $users = User::where('approval_status', User::STATUS_APPROVED)->where('is_active', true)->orderBy('name')->get();
@@ -104,6 +106,7 @@ class MeetingController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        /** @var User $user */
         $user = Auth::user();
 
         $validated = $request->validate([
@@ -247,6 +250,7 @@ class MeetingController extends Controller
      */
     public function show(Meeting $meeting): View
     {
+        /** @var User $user */
         $user = Auth::user();
 
         // Permission check: Strict isolation (only organizer or participant, unless Developer)
@@ -278,6 +282,7 @@ class MeetingController extends Controller
      */
     public function edit(Meeting $meeting): View
     {
+        /** @var User $user */
         $user = Auth::user();
 
         if (!$user->isSuperAdmin() && $meeting->organizer_id !== $user->id) {
@@ -297,6 +302,7 @@ class MeetingController extends Controller
      */
     public function update(Request $request, Meeting $meeting): RedirectResponse
     {
+        /** @var User $user */
         $user = Auth::user();
 
         if (!$user->isSuperAdmin() && $meeting->organizer_id !== $user->id) {
@@ -393,6 +399,7 @@ class MeetingController extends Controller
      */
     public function cancel(Request $request, Meeting $meeting): RedirectResponse
     {
+        /** @var User $user */
         $user = Auth::user();
 
         if (!$user->isSuperAdmin() && $meeting->organizer_id !== $user->id) {
@@ -423,6 +430,7 @@ class MeetingController extends Controller
      */
     public function destroy(Meeting $meeting): RedirectResponse
     {
+        /** @var User $user */
         $user = Auth::user();
 
         if (!$user->isSuperAdmin() && $meeting->organizer_id !== $user->id) {
@@ -453,6 +461,7 @@ class MeetingController extends Controller
      */
     public function rsvp(Request $request, Meeting $meeting): RedirectResponse
     {
+        /** @var User $user */
         $user = Auth::user();
 
         $validated = $request->validate([

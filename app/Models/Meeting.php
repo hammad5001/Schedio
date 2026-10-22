@@ -11,6 +11,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @mixin IdeHelperMeeting
+ */
 class Meeting extends Model
 {
     use BelongsToTenant, HasFactory, SoftDeletes;

@@ -9,6 +9,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @mixin IdeHelperMeetingNote
+ */
 class MeetingNote extends Model
 {
     use BelongsToTenant, HasFactory, SoftDeletes;

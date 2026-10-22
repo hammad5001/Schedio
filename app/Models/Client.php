@@ -10,6 +10,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @mixin IdeHelperClient
+ */
 class Client extends Model
 {
     use BelongsToTenant, HasFactory, SoftDeletes;

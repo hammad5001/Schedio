@@ -16,6 +16,7 @@ class TaskController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        /** @var User $user */
         $user = Auth::user();
 
         $validated = $request->validate([
@@ -52,6 +53,7 @@ class TaskController extends Controller
      */
     public function updateStatus(Request $request, Task $task): RedirectResponse
     {
+        /** @var User $user */
         $user = Auth::user();
 
         // Ensure user is super admin, creator, or assigned

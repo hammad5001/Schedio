@@ -13,11 +13,16 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
+/**
+ * @property-read \Illuminate\Database\Eloquent\Relations\Pivot|\App\Models\MeetingParticipant $pivot
+ * @mixin IdeHelperUser
+ */
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use BelongsToTenant, HasFactory, Notifiable, SoftDeletes;
+    use BelongsToTenant, HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     public const ROLE_DEVELOPER = 'developer';
     public const ROLE_SUPER_ADMIN = 'super_admin';

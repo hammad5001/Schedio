@@ -19,6 +19,7 @@ class RegistrationRequestController extends Controller
      */
     public function index(Request $request): View
     {
+        /** @var User $admin */
         $admin = Auth::user();
         $status = $request->query('status', User::STATUS_PENDING);
         $type = $request->query('type', 'all');
@@ -77,6 +78,7 @@ class RegistrationRequestController extends Controller
      */
     public function approve(Request $request, User $user): RedirectResponse
     {
+        /** @var User $admin */
         $admin = Auth::user();
 
         // Authorization check: non-developers can only approve requests in their own company
@@ -147,6 +149,7 @@ class RegistrationRequestController extends Controller
      */
     public function reject(Request $request, User $user): RedirectResponse
     {
+        /** @var User $admin */
         $admin = Auth::user();
 
         if (! $admin->isDeveloper() && $user->company_id !== $admin->company_id) {
@@ -205,6 +208,7 @@ class RegistrationRequestController extends Controller
      */
     public function revert(Request $request, User $user): RedirectResponse
     {
+        /** @var User $admin */
         $admin = Auth::user();
 
         if (! $admin->isDeveloper() && $user->company_id !== $admin->company_id) {
@@ -264,6 +268,7 @@ class RegistrationRequestController extends Controller
      */
     public function restorePending(Request $request, User $user): RedirectResponse
     {
+        /** @var User $admin */
         $admin = Auth::user();
 
         if (! $admin->isDeveloper() && $user->company_id !== $admin->company_id) {

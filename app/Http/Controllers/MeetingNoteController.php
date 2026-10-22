@@ -19,6 +19,7 @@ class MeetingNoteController extends Controller
      */
     public function store(Request $request, Meeting $meeting): RedirectResponse|JsonResponse
     {
+        /** @var User $user */
         $user = Auth::user();
 
         // Check permission to contribute to meeting notes
@@ -89,6 +90,7 @@ class MeetingNoteController extends Controller
      */
     public function update(Request $request, MeetingNote $note): RedirectResponse|JsonResponse
     {
+        /** @var User $user */
         $user = Auth::user();
         $meeting = $note->meeting;
 
@@ -157,6 +159,7 @@ class MeetingNoteController extends Controller
      */
     public function destroy(MeetingNote $note): RedirectResponse|JsonResponse
     {
+        /** @var User $user */
         $user = Auth::user();
         $meeting = $note->meeting;
 

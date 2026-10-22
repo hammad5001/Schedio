@@ -20,6 +20,7 @@ class RoomController extends Controller
      */
     public function index(Request $request): View
     {
+        /** @var User $user */
         $user = Auth::user();
         $search = $request->query('search');
         $status = $request->query('status', 'all'); // all, active, inactive
@@ -62,6 +63,7 @@ class RoomController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        /** @var User $user */
         $user = Auth::user();
         if (!$user->isSuperAdmin()) {
             abort(403, 'Unauthorized. Only Super Administrators can configure meeting suites.');
@@ -124,6 +126,7 @@ class RoomController extends Controller
               ->take(20);
         }]);
 
+        /** @var User $user */
         $user = Auth::user();
 
         return view('rooms.show', compact('room', 'user'));
@@ -134,6 +137,7 @@ class RoomController extends Controller
      */
     public function update(Request $request, Room $room): RedirectResponse
     {
+        /** @var User $user */
         $user = Auth::user();
         if (!$user->isSuperAdmin()) {
             abort(403, 'Unauthorized. Only Super Administrators can modify meeting suites.');
@@ -186,6 +190,7 @@ class RoomController extends Controller
      */
     public function destroy(Room $room): RedirectResponse
     {
+        /** @var User $user */
         $user = Auth::user();
         if (!$user->isSuperAdmin()) {
             abort(403, 'Unauthorized.');

@@ -18,6 +18,7 @@ class AiAssistantController extends Controller
             'message' => ['required', 'string', 'max:1000'],
         ]);
 
+        /** @var \App\Models\User $user */
         $user = Auth::user();
         $history = session()->get('ai_chat_history', []);
 

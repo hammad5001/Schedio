@@ -36,6 +36,7 @@ class CompanyScope implements Scope
                 return;
             }
 
+            /** @var \App\Models\User|null $user */
             $user = Auth::user();
             if (! $user) {
                 return;

@@ -24,6 +24,7 @@ class ClientController extends Controller
      */
     public function index(Request $request): View
     {
+        /** @var User $user */
         $user = Auth::user();
         $query = Client::with(['assignedTo', 'upcomingMeeting', 'meetings'])->latest('last_activity_at');
 
@@ -120,6 +121,7 @@ class ClientController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        /** @var User $user */
         $user = Auth::user();
 
         $validated = $request->validate([
@@ -163,6 +165,7 @@ class ClientController extends Controller
      */
     public function show(Client $client): View
     {
+        /** @var User $user */
         $user = Auth::user();
 
         // Data isolation guard
@@ -183,6 +186,7 @@ class ClientController extends Controller
      */
     public function update(Request $request, Client $client): RedirectResponse
     {
+        /** @var User $user */
         $user = Auth::user();
 
         if (!$user->isSuperAdmin() && $client->assigned_to !== $user->id && $client->created_by !== $user->id) {
@@ -233,6 +237,7 @@ class ClientController extends Controller
      */
     public function updateStatus(Request $request, Client $client): JsonResponse|RedirectResponse
     {
+        /** @var User $user */
         $user = Auth::user();
 
         if (!$user->isSuperAdmin() && $client->assigned_to !== $user->id && $client->created_by !== $user->id) {
@@ -324,6 +329,7 @@ class ClientController extends Controller
      */
     public function scheduleMeeting(Request $request, Client $client): RedirectResponse
     {
+        /** @var User $user */
         $user = Auth::user();
 
         if (!$user->isSuperAdmin() && $client->assigned_to !== $user->id && $client->created_by !== $user->id) {
@@ -419,6 +425,7 @@ class ClientController extends Controller
      */
     public function destroy(Client $client): RedirectResponse
     {
+        /** @var User $user */
         $user = Auth::user();
 
         if (!$user->isSuperAdmin() && $client->assigned_to !== $user->id && $client->created_by !== $user->id) {

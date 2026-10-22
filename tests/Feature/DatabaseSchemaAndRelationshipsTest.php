@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AuditLog;
+use App\Models\Company;
 use App\Models\Department;
 use App\Models\Event;
 use App\Models\Meeting;
@@ -23,6 +24,7 @@ class DatabaseSchemaAndRelationshipsTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
+        $this->assertDatabaseCount('companies', 2);
         $this->assertDatabaseCount('departments', 3);
         $this->assertDatabaseCount('users', 7); // 6 Schedio HQ users + 1 Apex Global CEO
         $this->assertDatabaseCount('rooms', 4); // 3 Schedio rooms + 1 Apex room
@@ -40,6 +42,8 @@ class DatabaseSchemaAndRelationshipsTest extends TestCase
 
         $admin = User::where('email', 'admin@schedio.com')->firstOrFail();
         
+        $this->assertNotNull($admin->company);
+        $this->assertEquals('schedio-hq', $admin->company->slug);
         $this->assertNotNull($admin->department);
         $this->assertEquals('ENG', $admin->department->code);
         $this->assertCount(2, $admin->organizedMeetings);
@@ -62,7 +66,9 @@ class DatabaseSchemaAndRelationshipsTest extends TestCase
         $this->assertCount(1, $meeting->tasks);
         $this->assertCount(1, $meeting->reminders);
         
+        /** @var User $firstParticipant */
         $firstParticipant = $meeting->participants->first();
+        $this->assertNotNull($firstParticipant);
         $this->assertNotEmpty($firstParticipant->pivot->role);
         $this->assertNotEmpty($firstParticipant->pivot->status);
     }
@@ -78,5 +84,23 @@ class DatabaseSchemaAndRelationshipsTest extends TestCase
         $auditLog = AuditLog::firstOrFail();
         $this->assertNotNull($auditLog->auditable);
         $this->assertNotNull($auditLog->user);
+    }
+
+    public function test_company_relationships_work(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        $company = Company::where('slug', 'schedio-hq')->firstOrFail();
+        $this->assertCount(6, $company->users);
+        $this->assertCount(3, $company->departments);
+        $this->assertCount(3, $company->rooms);
+        $this->assertCount(2, $company->meetings);
+        $this->assertCount(1, $company->events);
+        $this->assertCount(1, $company->tasks);
+
+        $apex = Company::where('slug', 'apex-global')->firstOrFail();
+        $this->assertCount(1, $apex->users);
+        $this->assertCount(1, $apex->rooms);
+        $this->assertCount(1, $apex->meetings);
     }
 }

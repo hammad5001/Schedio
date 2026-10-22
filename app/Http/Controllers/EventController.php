@@ -20,6 +20,7 @@ class EventController extends Controller
      */
     public function index(Request $request): View
     {
+        /** @var User $user */
         $user = Auth::user();
         $category = $request->query('category', 'all');
         $departmentId = $request->query('department_id');
@@ -73,6 +74,7 @@ class EventController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        /** @var User $user */
         $user = Auth::user();
 
         $validated = $request->validate([
@@ -130,6 +132,7 @@ class EventController extends Controller
      */
     public function update(Request $request, Event $event): RedirectResponse
     {
+        /** @var User $user */
         $user = Auth::user();
 
         if (!$user->isSuperAdmin() && $event->user_id !== $user->id) {
@@ -183,6 +186,7 @@ class EventController extends Controller
      */
     public function destroy(Event $event): RedirectResponse
     {
+        /** @var User $user */
         $user = Auth::user();
 
         if (!$user->isSuperAdmin() && $event->user_id !== $user->id) {

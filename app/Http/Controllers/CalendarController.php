@@ -24,6 +24,7 @@ class CalendarController extends Controller
      */
     public function index(Request $request): View
     {
+        /** @var User $user */
         $user = Auth::user();
         $departments = Department::where('is_active', true)->orderBy('name')->get();
         $users = User::where('approval_status', User::STATUS_APPROVED)->where('is_active', true)->orderBy('name')->get();
@@ -36,6 +37,7 @@ class CalendarController extends Controller
      */
     public function feed(Request $request): JsonResponse
     {
+        /** @var User $user */
         $user = Auth::user();
         
         $request->validate([
@@ -228,6 +230,7 @@ class CalendarController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        /** @var User $user */
         $user = Auth::user();
         $entityType = $request->input('entity_type', 'meeting');
 
@@ -377,6 +380,7 @@ class CalendarController extends Controller
      */
     public function updateTime(Request $request, string $type, int $id): JsonResponse
     {
+        /** @var User $user */
         $user = Auth::user();
 
         $validated = $request->validate([
@@ -442,6 +446,7 @@ class CalendarController extends Controller
      */
     public function destroy(string $type, int $id): JsonResponse
     {
+        /** @var User $user */
         $user = Auth::user();
 
         if ($type === 'meeting') {

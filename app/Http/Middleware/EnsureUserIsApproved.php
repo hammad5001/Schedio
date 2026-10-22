@@ -17,6 +17,7 @@ class EnsureUserIsApproved
      */
     public function handle(Request $request, Closure $next): Response
     {
+        /** @var User|null $user */
         $user = Auth::user();
 
         if (!$user) {
