@@ -33,7 +33,67 @@ Authorization: Bearer <your_access_token>
 
 ---
 
-## 2. Authentication Flow (Laravel Sanctum)
+## 2. Flutter Client Setup & Integration Guide
+
+### A. Network Client with Interceptors (`lib/core/network/api_client.dart`)
+Use `Dio` to automatically attach the Bearer token, handle `401` session expirations, and process `403` account approval status dialogs:
+
+```dart
+import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+class ApiClient {
+  static const String baseUrl = 'https://schedio.live/api/v1';
+  static const _storage = FlutterSecureStorage();
+  late final Dio dio;
+
+  ApiClient() {
+    dio = Dio(BaseOptions(
+      baseUrl: baseUrl,
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 15),
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+    ));
+
+    dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        // Automatically attach Bearer token
+        final token = await _storage.read(key: 'sanctum_token');
+        if (token != null && token.isNotEmpty) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+        return handler.next(options);
+      },
+      onError: (DioException error, handler) async {
+        final statusCode = error.response?.statusCode;
+        final data = error.response?.data;
+
+        // 1. Token Expired or Revoked (401)
+        if (statusCode == 401) {
+          await _storage.delete(key: 'sanctum_token');
+          // Navigate user to login screen
+        }
+
+        // 2. Account Status Check (403: pending, rejected, inactive)
+        if (statusCode == 403 && data is Map && data.containsKey('account_status')) {
+          final accountStatus = data['account_status']; // 'pending' | 'rejected' | 'inactive'
+          final message = data['message'] ?? 'Access denied.';
+          // Display account status modal to user with the message
+        }
+
+        return handler.next(error);
+      },
+    ));
+  }
+}
+```
+
+---
+
+## 3. Authentication Flow (Laravel Sanctum)
 
 ### A. Sign In (Get Bearer Token)
 - **Endpoint:** `POST /api/v1/auth/login`
