@@ -41,8 +41,8 @@ Authorization: Bearer <your_access_token>
 - **Request Body:**
 ```json
 {
-  "email": "admin@schedio.com",
-  "password": "password",
+  "email": "mobile.tester@schedio.live",
+  "password": "TestAppPass123!",
   "device_name": "Pixel 8 Pro"
 }
 ```
@@ -53,13 +53,13 @@ Authorization: Bearer <your_access_token>
   "token": "1|9f3c8a7b...",
   "user": {
     "id": 1,
-    "name": "Alex Rivera",
-    "email": "admin@schedio.com",
+    "name": "Mobile App Tester",
+    "email": "mobile.tester@schedio.live",
     "role": "developer",
     "role_label": "Platform Developer",
-    "timezone": "America/New_York",
-    "phone": "+1 (555) 019-2834",
-    "title": "Chief Technology Officer",
+    "timezone": "Asia/Karachi",
+    "phone": null,
+    "title": null,
     "avatar_url": null,
     "company": {
       "id": 1,
@@ -520,20 +520,20 @@ Use these endpoints to populate meeting creation and assignment forms:
 
 ## 11. Test Credentials & Verification
 
-Use these accounts to test login, permissions, and tenant isolation:
+Use this pre-configured active account on `https://schedio.live` to test login, permissions, and all API endpoints:
 
-| Company | Role | Email | Password |
+| Role | Email | Password | Access Level |
 | :--- | :--- | :--- | :--- |
-| **Schedio Technologies HQ** | Developer / Super Admin | `admin@schedio.com` | `password` |
-| **Schedio Technologies HQ** | Staff Employee | `marcus.v@schedio.com` | `password` |
-| **Apex Global Logistics** | Company CEO (Super Admin) | `ceo@apexlogistics.com` | `password` |
+| **Platform Developer (Full Access)** | `mobile.tester@schedio.live` | `TestAppPass123!` | Complete access across all companies, rooms, meetings, and pipeline |
+
+*(You can also use any approved user registered through the Schedio web application).*
 
 ### Running the Contract Verification Tool
-From the `schedio_mobile` folder in your repository:
+From the `schedio_mobile` folder in your Flutter repository:
 ```bash
 dart run tool/api_contract_check.dart https://schedio.live/api/v1/
 ```
-With an authentication token:
+With authentication token:
 ```bash
 SCHEDIO_TOKEN="<token_from_login>" dart run tool/api_contract_check.dart https://schedio.live/api/v1/
 ```
