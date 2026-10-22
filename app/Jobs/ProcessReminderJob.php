@@ -67,6 +67,22 @@ class ProcessReminderJob implements ShouldQueue
                 // Send Notification (In-App Database + Email)
                 if ($reminder->user) {
                     $reminder->user->notify(new SessionReminderNotification($reminder));
+
+                    // Send Real-Time Mobile Push Notification
+                    try {
+                        app(\App\Services\FirebaseCloudMessagingService::class)->sendToUser(
+                            $reminder->user,
+                            $reminder->title,
+                            $reminder->message,
+                            [
+                                'type' => 'meeting_reminder',
+                                'reminder_id' => $reminder->id,
+                                'meeting_id' => $reminder->remindable_id,
+                            ]
+                        );
+                    } catch (\Throwable $e) {
+                        Log::warning("Failed to dispatch FCM push reminder: " . $e->getMessage());
+                    }
                 }
 
                 // Mark reminder as sent

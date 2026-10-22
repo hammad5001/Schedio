@@ -40,4 +40,10 @@ return [
         'model' => env('GEMINI_MODEL', 'gemini-3.5-flash-lite'),
     ],
 
+    'firebase' => [
+        'project_id' => env('FIREBASE_PROJECT_ID', 'schedio-app-bc57b'),
+        'credentials_path' => env('FIREBASE_CREDENTIALS', storage_path('app/firebase/service-account.json')),
+        'credentials_json' => env('FIREBASE_CREDENTIALS_JSON'),
+    ],
+
 ];

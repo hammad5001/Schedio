@@ -15,6 +15,12 @@ use Illuminate\Support\Facades\Log;
 
 class NotificationDispatchService
 {
+    public function __construct(
+        protected ?FirebaseCloudMessagingService $fcmService = null
+    ) {
+        $this->fcmService = $fcmService ?: app(FirebaseCloudMessagingService::class);
+    }
+
     /**
      * Send invitations to participants of a meeting.
      *
@@ -38,6 +44,20 @@ class NotificationDispatchService
                 Log::warning("Failed to deliver meeting invitation notification to user {$participant->id}: " . $e->getMessage());
             }
         }
+
+        // Send Real-Time Firebase Push Notifications
+        try {
+            $organizerName = $meeting->organizer?->name ?? 'A colleague';
+            $title = "Meeting Invitation: {$meeting->title}";
+            $body = "{$organizerName} invited you to '{$meeting->title}' scheduled for " . $meeting->start_time->format('M d, h:i A') . ".";
+            $this->fcmService->sendToUsers($participants, $title, $body, [
+                'type' => 'meeting_invitation',
+                'meeting_id' => $meeting->id,
+                'title' => $meeting->title,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning("Failed to dispatch FCM push invitation: " . $e->getMessage());
+        }
     }
 
     /**
@@ -58,6 +78,19 @@ class NotificationDispatchService
             } catch (\Throwable $e) {
                 Log::warning("Failed to deliver meeting updated notification to user {$participant->id}: " . $e->getMessage());
             }
+        }
+
+        // Send Real-Time Firebase Push Notifications
+        try {
+            $title = "Meeting Updated: {$meeting->title}";
+            $body = "Details for your meeting '{$meeting->title}' have been modified.";
+            $this->fcmService->sendToUsers($participants, $title, $body, [
+                'type' => 'meeting_updated',
+                'meeting_id' => $meeting->id,
+                'title' => $meeting->title,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning("Failed to dispatch FCM push update: " . $e->getMessage());
         }
     }
 
@@ -80,6 +113,20 @@ class NotificationDispatchService
                 Log::warning("Failed to deliver meeting cancelled notification to user {$participant->id}: " . $e->getMessage());
             }
         }
+
+        // Send Real-Time Firebase Push Notifications
+        try {
+            $canceller = $cancellerName ?: 'The host';
+            $title = "Meeting Cancelled: {$meeting->title}";
+            $body = "Meeting '{$meeting->title}' has been cancelled by {$canceller}.";
+            $this->fcmService->sendToUsers($participants, $title, $body, [
+                'type' => 'meeting_cancelled',
+                'meeting_id' => $meeting->id,
+                'title' => $meeting->title,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning("Failed to dispatch FCM push cancellation: " . $e->getMessage());
+        }
     }
 
     /**
@@ -98,6 +145,22 @@ class NotificationDispatchService
                 $organizer->notify(new ParticipantResponseNotification($meeting, $participant, $status, $notes));
             } catch (\Throwable $e) {
                 Log::warning("Failed to deliver RSVP notification to organizer {$organizer->id}: " . $e->getMessage());
+            }
+
+            // Send Real-Time Firebase Push to Organizer
+            try {
+                $this->fcmService->sendToUser(
+                    $organizer,
+                    "RSVP: {$participant->name}",
+                    "{$participant->name} responded: " . ucfirst($status) . " for '{$meeting->title}'.",
+                    [
+                        'type' => 'participant_response',
+                        'meeting_id' => $meeting->id,
+                        'status' => $status,
+                    ]
+                );
+            } catch (\Throwable $e) {
+                Log::warning("Failed to dispatch FCM RSVP push: " . $e->getMessage());
             }
         }
     }
@@ -121,6 +184,21 @@ class NotificationDispatchService
                 } catch (\Throwable $e) {
                     Log::warning("Failed to deliver task notification to assignee {$assignee->id}: " . $e->getMessage());
                 }
+
+                try {
+                    $this->fcmService->sendToUser(
+                        $assignee,
+                        "Task " . ucfirst(str_replace('_', ' ', $activityType)),
+                        "Task '{$task->title}' was {$activityType}.",
+                        [
+                            'type' => 'task_activity',
+                            'task_id' => $task->id,
+                            'activity_type' => $activityType,
+                        ]
+                    );
+                } catch (\Throwable $e) {
+                    Log::warning("Failed to dispatch FCM task push: " . $e->getMessage());
+                }
             }
         }
 
@@ -132,6 +210,21 @@ class NotificationDispatchService
                     $creator->notify(new TaskActivityNotification($task, $activityType, $actor, $detail));
                 } catch (\Throwable $e) {
                     Log::warning("Failed to deliver task completed notification to creator {$creator->id}: " . $e->getMessage());
+                }
+
+                try {
+                    $this->fcmService->sendToUser(
+                        $creator,
+                        "Task Completed: {$task->title}",
+                        "Task '{$task->title}' has been marked as completed.",
+                        [
+                            'type' => 'task_activity',
+                            'task_id' => $task->id,
+                            'activity_type' => $activityType,
+                        ]
+                    );
+                } catch (\Throwable $e) {
+                    Log::warning("Failed to dispatch FCM task push: " . $e->getMessage());
                 }
             }
         }

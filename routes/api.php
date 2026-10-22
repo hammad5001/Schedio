@@ -109,6 +109,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
         Route::get('/notifications/preferences', [NotificationController::class, 'getPreferences']);
         Route::post('/notifications/preferences', [NotificationController::class, 'updatePreferences']);
+        Route::post('/notifications/test-push', [NotificationController::class, 'testPush']);
 
         // Administrative Registration Requests
         Route::get('/admin/registration-requests', [AdminRegistrationController::class, 'index']);

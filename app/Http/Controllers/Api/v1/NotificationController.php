@@ -152,4 +152,26 @@ class NotificationController extends Controller
             'data' => $updated,
         ]);
     }
+
+    /**
+     * Dispatch controlled test push notification to user's registered devices.
+     */
+    public function testPush(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+        $title = $request->input('title', 'Schedio Test Push');
+        $body = $request->input('body', 'Test push notification delivery verified on Android device.');
+
+        /** @var \App\Services\FirebaseCloudMessagingService $fcm */
+        $fcm = app(\App\Services\FirebaseCloudMessagingService::class);
+
+        $result = $fcm->sendTestNotification($user->email);
+
+        return response()->json([
+            'message' => 'Test notification requested.',
+            'configured' => $fcm->isConfigured(),
+            'result' => $result,
+        ]);
+    }
 }

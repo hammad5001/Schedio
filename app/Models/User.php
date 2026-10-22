@@ -343,6 +343,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Push notification device tokens registered on mobile apps.
+     */
+    public function deviceTokens(): HasMany
+    {
+        return $this->hasMany(DeviceToken::class);
+    }
+
+    /**
      * Audit log actions performed by this user.
      */
     public function auditLogs(): HasMany

@@ -23,3 +23,7 @@ yarn-error.log
 /.zed
 /database/*.sqlite
 /database/*.sqlite-journal
+/storage/app/firebase/*
+!/storage/app/firebase/.gitkeep
+*service-account*.json
+firebase-credentials*.json
