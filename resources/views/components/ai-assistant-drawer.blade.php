@@ -195,13 +195,37 @@
 
         <!-- Executive Input Box Container -->
         <div class="p-3.5 bg-gradient-to-t from-[#0e1014] to-[#14171d] border-t border-white/10">
+            <!-- Recording Indicator Banner -->
+            <div x-show="isRecording"
+                 x-cloak
+                 class="mb-2 px-3 py-1.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[10px] flex items-center justify-between animate-pulse">
+                <span class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                    <span class="font-bold">Listening... boliye, meeting details bolen 🎙️</span>
+                </span>
+                <button type="button" @click="toggleVoiceRecording()" class="text-rose-200 underline text-[9px] hover:text-white cursor-pointer">Stop</button>
+            </div>
+
             <form @submit.prevent="sendMessage()" class="relative flex items-center">
                 <input type="text"
                        x-ref="queryInput"
                        x-model="inputQuery"
                        :disabled="isLoading"
-                       placeholder="Poochiye: e.g. meri meetings batao ya room book karo..."
-                       class="w-full bg-[#1b2029]/90 border border-white/10 focus:border-amber-400/80 rounded-2xl pl-4 pr-12 py-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all disabled:opacity-50 font-sans shadow-inner">
+                       placeholder="Boliye ya likhein: e.g. 'Schedule sync tomorrow at 3pm with Sarah'..."
+                       class="w-full bg-[#1b2029]/90 border border-white/10 focus:border-amber-400/80 rounded-2xl pl-4 pr-20 py-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400/20 transition-all disabled:opacity-50 font-sans shadow-inner">
+
+                <!-- Voice Microphone Button -->
+                <button type="button"
+                        @click="toggleVoiceRecording()"
+                        :class="isRecording ? 'bg-rose-500 text-white animate-pulse shadow-lg shadow-rose-500/50' : 'text-slate-400 hover:text-amber-300 bg-white/5 hover:bg-white/10'"
+                        class="absolute right-10.5 w-7 h-7 rounded-xl flex items-center justify-center transition-all duration-200 cursor-pointer"
+                        :title="isRecording ? 'Listening... click to stop' : 'Voice se boliye (Microphone)'">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                        <line x1="12" y1="19" x2="12" y2="22"/>
+                    </svg>
+                </button>
 
                 <!-- Submit Button Embedded in Input -->
                 <button type="submit"
@@ -217,9 +241,9 @@
             <div class="mt-2.5 flex items-center justify-between text-[9px] text-slate-400 px-1 font-mono">
                 <span class="flex items-center gap-1.5">
                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                    <span>Google Gemini 3.8 ✦ Schedio Core</span>
+                    <span>Voice AI Enabled ✦ Schedio Core</span>
                 </span>
-                <span class="text-slate-400">Press Enter ↵</span>
+                <span class="text-slate-400">Press 🎙️ or Enter ↵</span>
             </div>
         </div>
     </div>
@@ -230,10 +254,13 @@ function schedioAiCopilot() {
     return {
         isOpen: false,
         isLoading: false,
+        isRecording: false,
+        recognition: null,
         inputQuery: '',
         messages: [],
         suggestions: [
             '📅 Meri upcoming meetings batao',
+            '🎙️ Voice se meeting schedule karo',
             '🚪 Free Rooms check karo',
             '🌐 Mera Public Booking link',
             '🔄 Revert feature kaise kaam karta hai?',
@@ -247,6 +274,57 @@ function schedioAiCopilot() {
                     this.toggleDrawer();
                 }
             });
+
+            // Initialize Web Speech API for voice recognition
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (SpeechRec) {
+                this.recognition = new SpeechRec();
+                this.recognition.continuous = false;
+                this.recognition.interimResults = true;
+                this.recognition.lang = 'en-US';
+
+                this.recognition.onstart = () => {
+                    this.isRecording = true;
+                };
+
+                this.recognition.onresult = (event) => {
+                    let transcript = '';
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        transcript += event.results[i][0].transcript;
+                    }
+                    this.inputQuery = transcript;
+                };
+
+                this.recognition.onerror = (e) => {
+                    console.warn('Speech error:', e);
+                    this.isRecording = false;
+                };
+
+                this.recognition.onend = () => {
+                    this.isRecording = false;
+                    if (this.inputQuery.trim()) {
+                        this.sendMessage();
+                    }
+                };
+            }
+        },
+
+        toggleVoiceRecording() {
+            if (!this.recognition) {
+                alert('Aapka browser Web Speech Recognition support nahi karta. Baraye meherbani Google Chrome ya Microsoft Edge use karein.');
+                return;
+            }
+            if (this.isRecording) {
+                this.recognition.stop();
+                this.isRecording = false;
+            } else {
+                this.inputQuery = '';
+                try {
+                    this.recognition.start();
+                } catch (e) {
+                    this.recognition.stop();
+                }
+            }
         },
 
         toggleDrawer() {
@@ -260,8 +338,17 @@ function schedioAiCopilot() {
         },
 
         useSuggestion(chip) {
+            if (chip.includes('Voice')) {
+                this.toggleVoiceRecording();
+                return;
+            }
             this.inputQuery = chip.replace(/^[^\w\s]+/, '').trim();
             this.sendMessage();
+        },
+
+        isSchedulingIntent(text) {
+            const t = text.toLowerCase();
+            return t.includes('schedule') || t.includes('meeting rakh') || t.includes('book meeting') || t.includes('room book') || t.includes('sync rakh') || t.includes('call rakh');
         },
 
         async sendMessage() {
@@ -273,6 +360,52 @@ function schedioAiCopilot() {
             this.inputQuery = '';
             this.isLoading = true;
             this.scrollToBottom();
+
+            // If query is a scheduling request, trigger Quick-Scheduler
+            if (this.isSchedulingIntent(query)) {
+                try {
+                    const response = await fetch("{{ route('ai.quick-schedule') }}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                            'Accept': 'application/json',
+                        },
+                        body: JSON.stringify({ prompt: query, auto_create: false }),
+                    });
+
+                    const res = await response.json();
+                    const d = res.data;
+
+                    if (d && d.parsed) {
+                        let text = `### 📅 Smart Meeting Plan Detected:\n\n`
+                            + `- **Title:** ${d.parsed.title}\n`
+                            + `- **Date & Time:** ${d.parsed.start_time} (${d.parsed.duration_minutes} mins)\n`
+                            + `- **Room:** ${d.parsed.room_name || 'Virtual / No Room'}\n`
+                            + `- **Participants:** ${d.parsed.participant_names && d.parsed.participant_names.length ? d.parsed.participant_names.join(', ') : 'Organizer only'}\n\n`;
+
+                        if (d.has_conflicts) {
+                            text += `⚠️ **Schedule Collision Detected!** Attendees or room are busy at this time.\n\n`;
+                            if (d.alternative_slots && d.alternative_slots.length) {
+                                text += `**Recommended Alternative Slots:**\n`;
+                                d.alternative_slots.slice(0, 3).forEach(s => {
+                                    text += `- ⏰ [Select ${s.start_formatted || s.start}](/meetings/create?start=${encodeURIComponent(s.start)})\n`;
+                                });
+                            }
+                        } else {
+                            text += `✅ **No Conflicts Found!** Ready to book.\n\n`
+                                + `👉 [Nayi Meeting Create Page Par Kholein](/meetings/create?title=${encodeURIComponent(d.parsed.title)}&start_time=${encodeURIComponent(d.parsed.start_time)}&end_time=${encodeURIComponent(d.parsed.end_time)})`;
+                        }
+
+                        this.messages.push({ role: 'model', content: text });
+                        this.isLoading = false;
+                        this.scrollToBottom();
+                        return;
+                    }
+                } catch (e) {
+                    console.warn('Quick schedule fallback to chat:', e);
+                }
+            }
 
             try {
                 const response = await fetch("{{ route('ai.chat') }}", {
