@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\Client;
 use App\Models\Company;
 use App\Models\Department;
 use App\Models\Meeting;
 use App\Models\Room;
+use App\Models\Task;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -135,4 +137,69 @@ class AiAssistantTest extends TestCase
 
         $this->assertNull(session('ai_chat_history'));
     }
+
+    public function test_ai_agent_autonomously_onboards_client_via_natural_language(): void
+    {
+        $client = Client::create([
+            'company_id' => $this->company->id,
+            'company_name' => 'Starlight Media Group',
+            'contact_name' => 'Hamza Ali',
+            'email' => 'hamza@starlight.test',
+            'phone' => '+923001234567',
+            'status' => Client::STATUS_DISCOVERY,
+            'deal_value' => 75000,
+        ]);
+
+        $response = $this->actingAs($this->user)->postJson(route('ai.chat'), [
+            'message' => 'Starlight Media ko onboard kar do',
+        ]);
+
+        $response->assertOk();
+        $this->assertStringContainsString('Client Status Updated in Database', $response->json('answer'));
+        $this->assertStringContainsString('Starlight Media Group', $response->json('answer'));
+
+        $this->assertEquals(Client::STATUS_ONBOARDED, $client->fresh()->status);
+    }
+
+    public function test_ai_agent_autonomously_schedules_meeting(): void
+    {
+        $response = $this->actingAs($this->user)->postJson(route('ai.chat'), [
+            'message' => 'Sarah ke sath kal 3 baje sync meeting schedule kar do',
+        ]);
+
+        $response->assertOk();
+        $this->assertStringContainsString('Meeting Successfully Scheduled', $response->json('answer'));
+
+        $this->assertDatabaseHas('meetings', [
+            'company_id' => $this->company->id,
+            'organizer_id' => $this->user->id,
+        ]);
+    }
+
+    public function test_ai_agent_autonomously_creates_and_completes_task(): void
+    {
+        // 1. Create task via natural language
+        $createRes = $this->actingAs($this->user)->postJson(route('ai.chat'), [
+            'message' => "Ek task bana do 'Prepare SLA agreement'",
+        ]);
+
+        $createRes->assertOk();
+        $this->assertStringContainsString('Task Created & Assigned in Database', $createRes->json('answer'));
+
+        $task = Task::where('company_id', $this->company->id)
+            ->where('title', 'Prepare SLA agreement')
+            ->first();
+        $this->assertNotNull($task);
+        $this->assertEquals('pending', $task->status);
+
+        // 2. Complete task via natural language
+        $completeRes = $this->actingAs($this->user)->postJson(route('ai.chat'), [
+            'message' => "Task 'Prepare SLA agreement' complete kar do",
+        ]);
+
+        $completeRes->assertOk();
+        $this->assertStringContainsString('Task Completed in Database', $completeRes->json('answer'));
+        $this->assertEquals('completed', $task->fresh()->status);
+    }
 }
+

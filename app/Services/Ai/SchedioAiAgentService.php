@@ -52,6 +52,15 @@ class SchedioAiAgentService
      */
     public function chat(User $user, string $message, array $history = []): array
     {
+        // 1. High-Priority Intent & Autonomous Action Execution Check
+        $localActionResult = $this->detectAndExecuteLocalIntent($user, $message);
+        if ($localActionResult !== null) {
+            return [
+                'answer' => $localActionResult,
+                'suggestions' => $this->getDynamicSuggestions($user),
+            ];
+        }
+
         $liveContext = $this->buildLiveUserContext($user);
         $systemInstructions = $this->buildSystemInstructions($user, $liveContext);
 
@@ -60,6 +69,20 @@ class SchedioAiAgentService
             try {
                 $response = $this->callGeminiApi($systemInstructions, $message, $history);
                 if ($response !== null) {
+                    // Check if LLM emitted an [ACTION: ...] tag
+                    if (preg_match('/\[ACTION:\s*(\{.*?\})\s*\]/is', $response, $matches)) {
+                        $actionPayload = json_decode($matches[1], true);
+                        if (is_array($actionPayload)) {
+                            $actionResult = $this->executeAgentAction($user, $actionPayload);
+                            $cleanResponse = trim(str_replace($matches[0], '', $response));
+                            $finalResponse = $actionResult ? ($actionResult . "\n\n" . $cleanResponse) : $cleanResponse;
+                            return [
+                                'answer' => trim($finalResponse),
+                                'suggestions' => $this->getDynamicSuggestions($user),
+                            ];
+                        }
+                    }
+
                     return [
                         'answer' => $response,
                         'suggestions' => $this->getDynamicSuggestions($user),
@@ -77,6 +100,336 @@ class SchedioAiAgentService
             'answer' => $localAnswer,
             'suggestions' => $this->getDynamicSuggestions($user),
         ];
+    }
+
+    /**
+     * Execute an autonomous agent action directly against the database.
+     */
+    public function executeAgentAction(User $user, array $action): ?string
+    {
+        $type = $action['action'] ?? '';
+
+        // 1. Schedule Meeting
+        if ($type === 'schedule_meeting') {
+            $prompt = $action['prompt'] ?? $action['title'] ?? '';
+            $res = $this->quickSchedule($user, $prompt, true);
+            if ($res['created'] && !empty($res['meeting'])) {
+                $m = $res['meeting'];
+                $url = route('meetings.show', $m->id);
+                return "✅ **Meeting Successfully Scheduled!**\n\n- 📅 **Title:** {$m->title}\n- ⏰ **Date & Time:** " . $m->start_time->format('l, M d, Y • h:i A') . "\n- 🚪 **Location:** " . ($m->room?->name ?? 'Virtual / No Room') . "\n\n👉 [Meeting Workspace Open Karein]({$url})";
+            } elseif ($res['has_conflicts']) {
+                $msg = "⚠️ **Schedule Collision Detected!** Requested time par clash hai.\n\n";
+                if (!empty($res['alternative_slots'])) {
+                    $msg .= "**Alternative Available Slots:**\n";
+                    foreach (array_slice($res['alternative_slots'], 0, 3) as $slot) {
+                        $msg .= "- ⏰ {$slot['start_formatted']} - {$slot['end_formatted']}\n";
+                    }
+                }
+                return $msg;
+            }
+        }
+
+        // 2. Update Client Status (Onboard, Paperwork, Pause, Discovery, Deadend)
+        if ($type === 'update_client' || $type === 'update_client_status') {
+            $clientName = trim($action['client_name'] ?? '');
+            $targetStatus = strtolower(trim($action['status'] ?? ''));
+
+            $statusMap = [
+                'discovery' => Client::STATUS_DISCOVERY,
+                'lead' => Client::STATUS_DISCOVERY,
+                'scheduled' => Client::STATUS_SCHEDULED,
+                'contacted' => Client::STATUS_SCHEDULED,
+                'meeting' => Client::STATUS_SCHEDULED,
+                'paperwork' => Client::STATUS_PAPERWORK_ONBOARDING,
+                'paperwork_onboarding' => Client::STATUS_PAPERWORK_ONBOARDING,
+                'proposal' => Client::STATUS_PAPERWORK_ONBOARDING,
+                'onboard' => Client::STATUS_ONBOARDED,
+                'onboarded' => Client::STATUS_ONBOARDED,
+                'won' => Client::STATUS_ONBOARDED,
+                'pause' => Client::STATUS_PAUSE,
+                'paused' => Client::STATUS_PAUSE,
+                'deadend' => Client::STATUS_DEADEND,
+                'dead_end' => Client::STATUS_DEADEND,
+                'lost' => Client::STATUS_DEADEND,
+            ];
+            $canonicalStatus = $statusMap[$targetStatus] ?? Client::STATUS_ONBOARDED;
+
+            $clientQuery = Client::withoutGlobalScopes()
+                ->when($user->company_id, fn ($q) => $q->where('company_id', $user->company_id));
+
+            if (!empty($action['client_id'])) {
+                $client = $clientQuery->where('id', (int)$action['client_id'])->first();
+            } elseif (!empty($clientName)) {
+                // Handle conversational pronouns like "isse", "isko", "ise", "usko", "this client"
+                if (preg_match('/^(?:isse|isko|ise|iss\s+ko|use|usko|this\s+client)$/i', $clientName)) {
+                    $client = $clientQuery->whereNotIn('status', [Client::STATUS_ONBOARDED, Client::STATUS_DEADEND])
+                        ->latest('updated_at')
+                        ->first();
+                } else {
+                    $client = $clientQuery->where(function ($q) use ($clientName) {
+                        $q->where('company_name', 'like', "%{$clientName}%")
+                          ->orWhere('contact_name', 'like', "%{$clientName}%");
+                    })->first();
+                }
+            } else {
+                // If clientName is omitted, pick the most recently active non-onboarded client
+                $client = $clientQuery->whereNotIn('status', [Client::STATUS_ONBOARDED, Client::STATUS_DEADEND])
+                    ->latest('updated_at')
+                    ->first();
+            }
+
+            if ($client) {
+                $oldLabel = $client->status_label;
+                $client->update([
+                    'status' => $canonicalStatus,
+                    'last_activity_at' => now(),
+                ]);
+                $url = route('clients.show', $client->id);
+                return "✅ **Client Status Updated in Database!**\n\n**{$client->company_name}** ({$client->contact_name}) ko **{$oldLabel}** se shift karke **{$client->status_label}** stage me update kar diya gaya hai.\n\n👉 [Client Details Page Open Karein]({$url}) | [CRM Pipeline Dekhein](/clients)";
+            } else {
+                $recentClients = Client::withoutGlobalScopes()
+                    ->when($user->company_id, fn ($q) => $q->where('company_id', $user->company_id))
+                    ->latest('updated_at')
+                    ->take(3)
+                    ->get();
+                $msg = "⚠️ Client **'{$clientName}'** database me nahi mila.\n\nAapki company ke recent leads:\n";
+                foreach ($recentClients as $rc) {
+                    $msg .= "- **{$rc->company_name}** ({$rc->status_label})\n";
+                }
+                $firstComp = $recentClients->first()?->company_name ?? 'Client Name';
+                $msg .= "\nKripya company name likhein, maslan: *'{$firstComp} ko onboard kar do'*";
+                return $msg;
+            }
+        }
+
+        // 3. Create Task
+        if ($type === 'create_task') {
+            $title = trim($action['title'] ?? 'Action Item');
+            $assignedToName = trim($action['assigned_to'] ?? '');
+            $priority = strtolower(trim($action['priority'] ?? 'medium'));
+            if (!in_array($priority, ['low', 'medium', 'high', 'urgent'])) {
+                $priority = 'medium';
+            }
+            $dueDate = !empty($action['due_date']) ? Carbon::parse($action['due_date']) : now()->addDays(3);
+
+            $assignee = null;
+            if (!empty($assignedToName)) {
+                $assignee = User::withoutGlobalScopes()
+                    ->when($user->company_id, fn ($q) => $q->where('company_id', $user->company_id))
+                    ->where(function ($q) use ($assignedToName) {
+                        $q->where('name', 'like', "%{$assignedToName}%")
+                          ->orWhere('email', 'like', "%{$assignedToName}%");
+                    })->first();
+            }
+            if (!$assignee) {
+                $assignee = $user;
+            }
+
+            $task = Task::create([
+                'company_id' => $user->company_id,
+                'title' => $title,
+                'description' => "Created via Schedio Copilot Agent for {$user->name}",
+                'assigned_to' => $assignee->id,
+                'created_by' => $user->id,
+                'department_id' => $assignee->department_id ?? $user->department_id,
+                'status' => 'pending',
+                'priority' => $priority,
+                'due_date' => $dueDate,
+            ]);
+
+            try {
+                app(NotificationDispatchService::class)->notifyTaskActivity($task, 'created');
+            } catch (\Throwable $e) {}
+
+            return "✅ **Task Created & Assigned in Database!**\n\n- 🎯 **Task:** {$task->title}\n- 👤 **Assigned To:** {$assignee->name}\n- ⚡ **Priority:** " . ucfirst($priority) . "\n- 📅 **Due Date:** " . $dueDate->format('M d, Y') . "\n\n👉 [Tasks Hub Open Karein](/calendar)";
+        }
+
+        // 4. Complete Task
+        if ($type === 'complete_task') {
+            $taskTitle = trim($action['task_title'] ?? $action['title'] ?? '');
+            $taskQuery = Task::withoutGlobalScopes()
+                ->when($user->company_id, fn ($q) => $q->where('company_id', $user->company_id))
+                ->where('status', '!=', 'completed');
+
+            if (!empty($taskTitle)) {
+                $task = $taskQuery->where('title', 'like', "%{$taskTitle}%")->first();
+            } else {
+                $task = $taskQuery->where('assigned_to', $user->id)->orderBy('due_date')->first();
+            }
+
+            if ($task) {
+                $task->update([
+                    'status' => 'completed',
+                    'completed_at' => now(),
+                ]);
+                return "✅ **Task Completed in Database!**\n\nTask **'{$task->title}'** ko successfully **Completed** mark kar diya gaya hai. 🎉";
+            } else {
+                return "⚠️ Complete karne ke liye koi pending task nahi mila.";
+            }
+        }
+
+        // 5. Cancel Meeting
+        if ($type === 'cancel_meeting') {
+            $meetingTitle = trim($action['meeting_title'] ?? $action['title'] ?? '');
+            $meetingQuery = Meeting::withoutGlobalScopes()
+                ->where(function ($q) use ($user) {
+                    $q->where('organizer_id', $user->id)
+                      ->orWhereHas('participants', fn ($p) => $p->where('users.id', $user->id));
+                })
+                ->where('status', '!=', 'cancelled');
+
+            if (!empty($meetingTitle)) {
+                $meeting = $meetingQuery->where('title', 'like', "%{$meetingTitle}%")->first();
+            } else {
+                $meeting = $meetingQuery->where('start_time', '>=', now())->orderBy('start_time')->first();
+            }
+
+            if ($meeting) {
+                $meeting->update(['status' => 'cancelled']);
+                try {
+                    app(NotificationDispatchService::class)->notifyMeetingCancelled($meeting);
+                } catch (\Throwable $e) {}
+                return "✅ **Meeting Cancelled in Database!**\n\nMeeting **'{$meeting->title}'** (" . $meeting->start_time->format('M d, h:i A') . ") cancel kar di gayi hai aur participants ko notification deliver ho gayi hai.";
+            } else {
+                return "⚠️ Cancel karne ke liye koi active meeting nahi mili.";
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Detect explicit user intent and execute database mutations immediately.
+     */
+    protected function detectAndExecuteLocalIntent(User $user, string $query): ?string
+    {
+        $q = trim($query);
+
+        // 1. Client Status Update Intent:
+        // Pattern A: e.g. "Starlight Media ko onboard kar do", "Acme ko pause kardo", "isse onboard krdo", "isko onboard kar do"
+        if (preg_match('/(?:mark\s+)?([a-zA-Z0-9\s\.\-_]+?)\s+(?:ko\s+|k\s+|status\s+to\s+|as\s+)?(onboard|onboarded|pause|paused|deadend|discovery|paperwork|scheduled|won|lost)(?:\s+(?:kar\s*do|kr\s*do|kardo|karo|me\s+shift|shift\s+kar\s*do))?/i', $q, $m)) {
+            $clientName = trim($m[1]);
+            $status = strtolower(trim($m[2]));
+
+            $stopWords = ['meeting', 'room', 'task', 'call', 'calendar', 'sync', 'aaj', 'kal'];
+            if (!in_array(strtolower($clientName), $stopWords) && strlen($clientName) >= 2) {
+                $actionResult = $this->executeAgentAction($user, [
+                    'action' => 'update_client',
+                    'client_name' => $clientName,
+                    'status' => $status,
+                ]);
+                if ($actionResult !== null) {
+                    return $actionResult;
+                }
+            }
+        }
+
+        // Pattern B: e.g. "onboard Starlight Media", "pause Acme", "onboard isse"
+        if (preg_match('/^(?:onboard|pause)\s+([a-zA-Z0-9\s\.\-_]+?)(?:\s+(?:kar\s*do|kr\s*do|kardo|karo))?$/i', $q, $m)) {
+            $status = str_starts_with(strtolower($q), 'pause') ? 'pause' : 'onboarded';
+            $clientName = trim($m[1]);
+            $actionResult = $this->executeAgentAction($user, [
+                'action' => 'update_client',
+                'client_name' => $clientName,
+                'status' => $status,
+            ]);
+            if ($actionResult !== null) {
+                return $actionResult;
+            }
+        }
+
+        // 2. Schedule Meeting Intent: e.g. "Sarah ke sath kal 3 baje meeting schedule kar do", "Meeting rakh do kal 4 baje", "Schedule sync tomorrow at 3pm"
+        if (
+            preg_match('/(?:schedule|rakh\s*do|rakhdo|book|banao|bana\s*do)\s+.*(?:meeting|sync|call|session)/i', $q) ||
+            preg_match('/(?:meeting|sync|call|session)\s+(?:rakh\s*do|rakhdo|schedule\s*(?:kar\s*do|kr\s*do|kardo|karo)?|book\s*karo|kr\s*do|krdo|kar\s*do|kardo)/i', $q)
+        ) {
+            $actionResult = $this->executeAgentAction($user, [
+                'action' => 'schedule_meeting',
+                'prompt' => $q,
+            ]);
+            if ($actionResult !== null) {
+                return $actionResult;
+            }
+        }
+
+        // 3. Complete Task Intent: e.g. "Task 'Prepare slides' complete kar do", "Task review contract done"
+        $completeMatched = false;
+        $completeTitle = '';
+
+        if (preg_match('/(?:task|kam)\s+[\'"]([^\'"]+)[\'"]\s*(?:complete|done|khatam|mukammal)(?:\s+(?:kar\s*do|kr\s*do|kardo|ho\s*gaya))?/i', $q, $m)) {
+            $completeTitle = trim($m[1]);
+            $completeMatched = true;
+        } elseif (preg_match('/(?:mark\s+task|complete\s+task)\s+[\'"]([^\'"]+)[\'"](?:\s+as\s+done|\s+as\s+completed)?/i', $q, $m)) {
+            $completeTitle = trim($m[1]);
+            $completeMatched = true;
+        } elseif (preg_match('/(?:task|kam)\s+(.+?)\s+(?:complete|done|khatam|mukammal)(?:\s+(?:kar\s*do|kr\s*do|kardo|ho\s*gaya))?$/i', $q, $m)) {
+            $completeTitle = trim($m[1], " \t\n\r\0\x0B'\"");
+            $completeMatched = true;
+        }
+
+        if ($completeMatched) {
+            $actionResult = $this->executeAgentAction($user, [
+                'action' => 'complete_task',
+                'task_title' => $completeTitle,
+            ]);
+            if ($actionResult !== null) {
+                return $actionResult;
+            }
+        }
+
+        // 4. Create Task Intent: e.g. "Ek task bana do 'Deploy v1.2' Sarah ko assign karke", "Task add karo 'Client pitch'"
+        $taskMatched = false;
+        $taskTitle = '';
+        $assignedTo = '';
+
+        if (preg_match('/(?:ek\s+)?(?:task|kam)\s+(?:bana\s*do|banado|create\s*(?:karo|kr\s*do|kar\s*do|kardo)?|add\s*(?:karo|kr\s*do|kar\s*do|kardo)?)\s+[\'"]([^\'"]+)[\'"](?:\s+(?:assigned?\s+to|ko\s+assign|for)\s+([a-zA-Z\s]+))?/i', $q, $m)) {
+            $taskTitle = trim($m[1]);
+            $assignedTo = isset($m[2]) ? trim($m[2]) : '';
+            $taskMatched = true;
+        } elseif (preg_match('/(?:create|add)\s+task\s+[\'"]([^\'"]+)[\'"](?:\s+(?:assigned?\s+to|for)\s+([a-zA-Z\s]+))?/i', $q, $m)) {
+            $taskTitle = trim($m[1]);
+            $assignedTo = isset($m[2]) ? trim($m[2]) : '';
+            $taskMatched = true;
+        } elseif (preg_match('/(?:ek\s+)?(?:task|kam)\s+(?:bana\s*do|banado|create\s*(?:karo|kr\s*do|kar\s*do|kardo)?|add\s*(?:karo|kr\s*do|kar\s*do|kardo)?)\s+(.+?)(?:\s+(?:assigned?\s+to|ko\s+assign|for)\s+([a-zA-Z\s]+))?$/i', $q, $m)) {
+            $taskTitle = trim($m[1], " \t\n\r\0\x0B'\"");
+            $assignedTo = isset($m[2]) ? trim($m[2]) : '';
+            $taskMatched = true;
+        }
+
+        if ($taskMatched && !empty($taskTitle)) {
+            $actionResult = $this->executeAgentAction($user, [
+                'action' => 'create_task',
+                'title' => $taskTitle,
+                'assigned_to' => $assignedTo,
+            ]);
+            if ($actionResult !== null) {
+                return $actionResult;
+            }
+        }
+
+        // 5. Cancel Meeting Intent: e.g. "Meeting 'Design Sync' cancel kar do", "Cancel meeting 'Sprint'"
+        $cancelMatched = false;
+        $cancelTitle = '';
+
+        if (preg_match('/(?:cancel\s+meeting|meeting\s+cancel)\s+[\'"]([^\'"]+)[\'"](?:\s+(?:kar\s*do|kr\s*do|kardo|karo))?/i', $q, $m)) {
+            $cancelTitle = trim($m[1]);
+            $cancelMatched = true;
+        } elseif (preg_match('/(?:cancel\s+meeting|meeting\s+cancel)\s*(.+?)(?:\s+(?:kar\s*do|kr\s*do|kardo|karo))?$/i', $q, $m)) {
+            $cancelTitle = trim($m[1], " \t\n\r\0\x0B'\"");
+            $cancelMatched = true;
+        }
+
+        if ($cancelMatched) {
+            $actionResult = $this->executeAgentAction($user, [
+                'action' => 'cancel_meeting',
+                'meeting_title' => $cancelTitle,
+            ]);
+            if ($actionResult !== null) {
+                return $actionResult;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -316,6 +669,23 @@ Your primary role is to help the user navigate Schedio, answer any questions abo
 #### Company Available Rooms:
 {$roomsJson}
 
+### Autonomous Agent Actions (Live Database Mutations):
+You have direct autonomous authorization to execute database actions when the user asks you to perform an operational task!
+To execute an action, output a single JSON tag in the exact format: `[ACTION: {"action": "...", ...}]` anywhere in your response.
+Supported actions:
+1. Schedule Meeting:
+   [ACTION: {"action": "schedule_meeting", "prompt": "<natural language text, e.g. 'Sync with Sarah tomorrow at 3pm'>"}]
+2. Update Client Status (Onboarding / Pipeline):
+   [ACTION: {"action": "update_client", "client_name": "<Client or Company Name>", "status": "<onboarded|paperwork|scheduled|pause|deadend|discovery>"}]
+3. Create Task:
+   [ACTION: {"action": "create_task", "title": "<Task Title>", "assigned_to": "<Assignee Name>", "priority": "<low|medium|high|urgent>", "due_date": "YYYY-MM-DD"}]
+4. Complete Task:
+   [ACTION: {"action": "complete_task", "task_title": "<Task Title>"}]
+5. Cancel Meeting:
+   [ACTION: {"action": "cancel_meeting", "meeting_title": "<Meeting Title>"}]
+
+Always confirm the action to the user in friendly, conversational language (Roman Urdu or English matching the user's query).
+
 Keep responses structured, concise, and executive-ready with bullet points and bold highlights.
 PROMPT;
     }
@@ -431,10 +801,12 @@ PROMPT;
     protected function getDynamicSuggestions(User $user): array
     {
         $base = [
+            '⚡ Starlight Media ko onboard kar do',
+            '📅 Kal 3 baje meeting schedule kar do',
+            '🎯 Ek task bana do Sarah ko assign karke',
             '📅 Meri upcoming meetings batao',
             '🚪 Free Rooms check karo',
             '🌐 Mera Public Booking link',
-            '🎯 Mere pending tasks',
         ];
 
         if ($user->isCompanySuperAdmin() || $user->isDeveloper()) {
@@ -620,8 +992,11 @@ SYS;
         $parsed['end_time'] = $endTime->format('Y-m-d H:i:s');
         $parsed['duration_minutes'] = $durationMinutes;
 
-        // Ensure current user is not duplicate in participant_ids
+        // Ensure only valid company users exist in participant_ids
+        $validUserIds = $companyUsers->pluck('id')->all();
         $participantIds = array_values(array_unique(array_filter(array_map('intval', (array)($parsed['participant_ids'] ?? [])))));
+        $participantIds = array_values(array_intersect($participantIds, $validUserIds));
+
         $roomId = !empty($parsed['room_id']) ? (int)$parsed['room_id'] : null;
         if ($roomId && !$rooms->contains('id', $roomId)) {
             $roomId = null;
