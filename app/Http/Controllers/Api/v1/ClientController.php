@@ -92,6 +92,20 @@ class ClientController extends Controller
         /** @var User $user */
         $user = $request->user();
 
+        $statusAliases = [
+            'lead' => Client::STATUS_DISCOVERY,
+            'contacted' => Client::STATUS_DISCOVERY,
+            'proposal' => Client::STATUS_PAPERWORK_ONBOARDING,
+            'proposal_sent' => Client::STATUS_PAPERWORK_ONBOARDING,
+            'won' => Client::STATUS_ONBOARDED,
+            'lost' => Client::STATUS_DEADEND,
+            'paused' => Client::STATUS_PAUSE,
+        ];
+
+        if ($request->filled('status') && isset($statusAliases[$request->input('status')])) {
+            $request->merge(['status' => $statusAliases[$request->input('status')]]);
+        }
+
         $validated = $request->validate([
             'company_name' => ['required', 'string', 'max:255'],
             'contact_name' => ['nullable', 'string', 'max:255'],
@@ -100,11 +114,14 @@ class ClientController extends Controller
             'contact_role' => ['nullable', 'string', 'max:100'],
             'campaign' => ['nullable', 'string', 'max:150'],
             'progress' => ['nullable', 'string', 'max:500'],
-            'status' => ['nullable', 'string', 'in:discovery,scheduled,paperwork_onboarding,onboarded,deadend,pause'],
+            'status' => ['nullable', 'string', 'in:discovery,scheduled,paperwork_onboarding,onboarded,deadend,pause,lead,contacted,proposal,proposal_sent,won,lost,paused'],
             'assigned_to' => ['nullable', 'exists:users,id'],
             'deal_value' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string'],
         ]);
+
+        $finalStatus = $validated['status'] ?? Client::STATUS_DISCOVERY;
+        $finalStatus = $statusAliases[$finalStatus] ?? $finalStatus;
 
         $client = Client::create([
             'company_id' => $user->company_id,
@@ -115,7 +132,7 @@ class ClientController extends Controller
             'contact_role' => $validated['contact_role'] ?? null,
             'campaign' => $validated['campaign'] ?? 'Direct',
             'progress' => $validated['progress'] ?? null,
-            'status' => $validated['status'] ?? Client::STATUS_DISCOVERY,
+            'status' => $finalStatus,
             'assigned_to' => $validated['assigned_to'] ?? $user->id,
             'created_by' => $user->id,
             'deal_value' => $validated['deal_value'] ?? null,
@@ -176,15 +193,32 @@ class ClientController extends Controller
     {
         $this->authorizeClientAccess($client, $request->user());
 
+        $statusAliases = [
+            'lead' => Client::STATUS_DISCOVERY,
+            'contacted' => Client::STATUS_DISCOVERY,
+            'proposal' => Client::STATUS_PAPERWORK_ONBOARDING,
+            'proposal_sent' => Client::STATUS_PAPERWORK_ONBOARDING,
+            'won' => Client::STATUS_ONBOARDED,
+            'lost' => Client::STATUS_DEADEND,
+            'paused' => Client::STATUS_PAUSE,
+        ];
+
+        if ($request->filled('status') && isset($statusAliases[$request->input('status')])) {
+            $request->merge(['status' => $statusAliases[$request->input('status')]]);
+        }
+
         $validated = $request->validate([
-            'status' => ['required', 'string', 'in:discovery,scheduled,paperwork_onboarding,onboarded,deadend,pause'],
+            'status' => ['required', 'string', 'in:discovery,scheduled,paperwork_onboarding,onboarded,deadend,pause,lead,contacted,proposal,proposal_sent,won,lost,paused'],
             'progress' => ['nullable', 'string', 'max:500'],
             'deal_value' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string'],
         ]);
 
+        $finalStatus = $validated['status'];
+        $finalStatus = $statusAliases[$finalStatus] ?? $finalStatus;
+
         $client->update([
-            'status' => $validated['status'],
+            'status' => $finalStatus,
             'progress' => $validated['progress'] ?? $client->progress,
             'deal_value' => array_key_exists('deal_value', $validated) ? $validated['deal_value'] : $client->deal_value,
             'notes' => $validated['notes'] ?? $client->notes,
@@ -232,6 +266,7 @@ class ClientController extends Controller
             'campaign' => $c->campaign,
             'progress' => $c->progress,
             'status' => $c->status,
+            'status_label' => Client::STATUSES[$c->status]['label'] ?? ucfirst(str_replace('_', ' ', $c->status)),
             'deal_value' => $c->deal_value ? (float) $c->deal_value : null,
             'notes' => $c->notes,
             'last_activity_at' => $c->last_activity_at?->toIso8601String(),

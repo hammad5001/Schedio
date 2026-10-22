@@ -57,6 +57,15 @@ class LookupController extends Controller
             ['key' => 'general', 'label' => 'General Event', 'color' => '#3b82f6'],
         ];
 
+        $pipelineStages = [
+            ['key' => 'discovery', 'label' => 'Discovery', 'aliases' => ['lead', 'contacted']],
+            ['key' => 'scheduled', 'label' => 'Scheduled', 'aliases' => ['meeting_scheduled']],
+            ['key' => 'paperwork_onboarding', 'label' => 'Paperwork / Onboarding', 'aliases' => ['proposal', 'proposal_sent']],
+            ['key' => 'onboarded', 'label' => 'Onboarded', 'aliases' => ['won']],
+            ['key' => 'deadend', 'label' => 'Deadend', 'aliases' => ['lost']],
+            ['key' => 'pause', 'label' => 'Paused', 'aliases' => ['paused']],
+        ];
+
         $data = [
             'departments' => $departments,
             'rooms' => $rooms->map(fn($r) => [
@@ -82,6 +91,8 @@ class LookupController extends Controller
             'task_statuses' => $taskStatuses,
             'task_priorities' => $taskPriorities,
             'event_categories' => $eventCategories,
+            'pipeline_stages' => $pipelineStages,
+            'client_statuses' => $pipelineStages,
         ];
 
         return response()->json([
@@ -95,6 +106,8 @@ class LookupController extends Controller
             'task_statuses' => $taskStatuses,
             'task_priorities' => $taskPriorities,
             'event_categories' => $eventCategories,
+            'pipeline_stages' => $pipelineStages,
+            'client_statuses' => $pipelineStages,
         ]);
     }
     /**
