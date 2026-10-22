@@ -606,3 +606,222 @@ dart run tool/api_contract_check.dart https://schedio.live/api/v1/
 SCHEDIO_TOKEN="<token_from_login>" dart run tool/api_contract_check.dart https://schedio.live/api/v1/
 ```
 All 58 routes will now return expected status codes (`200`, `201`, `204`, `401`, `403` with valid JSON).
+
+---
+
+## 13. Schedio AI Copilot & Autonomous Suite (`/api/v1/ai/*`)
+
+The Schedio AI Copilot empowers the Flutter mobile application with autonomous intelligent scheduling, executive morning briefings, meeting minutes synthesis, and CRM deal intelligence.
+
+All AI endpoints require a valid Sanctum bearer token (`Authorization: Bearer <token>`).
+
+### 13.1 AI Copilot Interactive Chat
+Chat interactively with the Schedio Copilot. It knows the user's upcoming calendar, rooms, tasks, and company policies, and adapts fluently between Roman Urdu and English.
+
+- **Route:** `POST /api/v1/ai/chat`
+- **Request Headers:**
+  ```http
+  Authorization: Bearer <sanctum_token>
+  Content-Type: application/json
+  Accept: application/json
+  ```
+- **Request Body:**
+  ```json
+  {
+    "message": "Kaunse rooms available hain hamari company me?",
+    "history": [
+      {"role": "user", "content": "Salam"},
+      {"role": "model", "content": "Walaikum Assalam! Main Schedio Copilot hoon."}
+    ]
+  }
+  ```
+- **Response (200 OK):**
+  ```json
+  {
+    "message": "AI Copilot response generated.",
+    "data": {
+      "answer": "Aapki company workspace ke available **Meeting Rooms & Focus Pods**:\n- **Apollo Boardroom** (Capacity: 12 people)...",
+      "suggestions": [
+        "📅 Meri upcoming meetings batao",
+        "🚪 Free Rooms check karo",
+        "🌐 Mera Public Booking link",
+        "🎯 Mere pending tasks"
+      ]
+    }
+  }
+  ```
+
+---
+
+### 13.2 Natural Language Quick-Scheduler ("Prompt-to-Meeting")
+Parse natural language scheduling prompts into conflict-checked meeting structures. Can either preview the booking or book directly.
+
+- **Route:** `POST /api/v1/ai/quick-schedule`
+- **Request Body:**
+  ```json
+  {
+    "prompt": "Schedule a 30-minute sync with Sarah tomorrow at 3pm in Apollo Boardroom",
+    "auto_create": false
+  }
+  ```
+  *(Set `"auto_create": true` to directly create the meeting, attach participants, and dispatch push invites).*
+- **Response (200 OK - Preview / 201 Created):**
+  ```json
+  {
+    "message": "Scheduling a 30-minute sync on Oct 24, 2026 03:00 PM in Apollo Boardroom",
+    "data": {
+      "status": "ready_to_book",
+      "created": false,
+      "has_conflicts": false,
+      "summary": "Scheduling a 30-minute sync on Oct 24, 2026 03:00 PM in Apollo Boardroom",
+      "parsed": {
+        "title": "Sync with Sarah Connor",
+        "description": "Scheduled from request: ...",
+        "start_time": "2026-10-24 15:00:00",
+        "end_time": "2026-10-24 15:30:00",
+        "duration_minutes": 30,
+        "room_id": 1,
+        "room_name": "Apollo Boardroom",
+        "participant_ids": [2],
+        "participant_names": ["Sarah Connor"]
+      },
+      "conflict_details": null,
+      "alternative_slots": [],
+      "meeting": null
+    }
+  }
+  ```
+
+---
+
+### 13.3 Daily Executive Briefing ("Morning Digest")
+Generates an executive briefing for the mobile app home screen with today's schedule, high-priority tasks, and detected "Deep Work" focus blocks.
+
+- **Route:** `GET /api/v1/ai/briefing?date=YYYY-MM-DD` *(Date query parameter is optional; defaults to today).*
+- **Response (200 OK):**
+  ```json
+  {
+    "message": "Daily executive briefing generated.",
+    "data": {
+      "date": "2026-10-23",
+      "date_formatted": "Friday, October 23, 2026",
+      "greeting": "Good morning, Alex!",
+      "headline": "You have 2 meetings and 1 pending task scheduled for Friday, October 23.",
+      "summary": "You have a productive day ahead. Focus on your highest priority deliverables during your available morning focus windows.",
+      "ai_productivity_tip": "Leverage your 11:30 AM - 02:00 PM uninterrupted block for high-concentration deep work.",
+      "meetings_count": 2,
+      "tasks_count": 1,
+      "focus_blocks": [
+        {
+          "start": "11:30 AM",
+          "end": "02:00 PM",
+          "duration_minutes": 150,
+          "label": "11:30 AM - 02:00 PM (150 mins uninterrupted focus)"
+        }
+      ],
+      "meetings": [
+        {
+          "id": 14,
+          "title": "Client Demo with Starlight",
+          "time": "02:00 PM - 03:00 PM",
+          "room": "Apollo Boardroom",
+          "client": "Starlight Media",
+          "participants_count": 3
+        }
+      ],
+      "tasks": [
+        {
+          "id": 7,
+          "title": "Submit Q4 Engineering Roadmap",
+          "priority": "high",
+          "due_date": "2026-10-23"
+        }
+      ]
+    }
+  }
+  ```
+
+---
+
+### 13.4 AI Meeting Notes Summarizer & Auto-Task Extractor (Granola / Otter Style)
+Transforms raw meeting transcripts or bullet points into structured executive minutes, key decisions, and automatically creates actionable `Task` records assigned to participants.
+
+- **Route:** `POST /api/v1/ai/summarize-meeting/{meeting_id}`
+- **Request Body:**
+  ```json
+  {
+    "raw_notes": "The team reviewed Sprint 42 accomplishments. We decided to transition microservices to Docker Compose. Sarah Connor will prepare the production migration plan by next Friday. Marcus Vance will audit the Redis cache.",
+    "auto_create_tasks": true,
+    "save_notes": true
+  }
+  ```
+- **Response (200 OK):**
+  ```json
+  {
+    "message": "Meeting notes summarized successfully.",
+    "data": {
+      "meeting_id": 14,
+      "meeting_title": "Sprint 42 Retrospective",
+      "executive_summary": "Meeting 'Sprint 42 Retrospective' was conducted with Alex and team...",
+      "key_decisions": [
+        "Transition microservices architecture to Docker Compose.",
+        "Mandate PR approvals by 2 senior engineers."
+      ],
+      "action_items": [
+        {
+          "title": "Prepare production migration plan",
+          "assigned_to_user_id": 2,
+          "assigned_to_name": "Sarah Connor",
+          "priority": "high",
+          "due_date": "2026-10-30"
+        }
+      ],
+      "saved_note_id": 9,
+      "created_tasks_count": 1,
+      "created_tasks": [
+        {
+          "id": 21,
+          "title": "Prepare production migration plan",
+          "assigned_to": 2,
+          "priority": "high",
+          "due_date": "2026-10-30"
+        }
+      ]
+    }
+  }
+  ```
+
+---
+
+### 13.5 AI CRM Deal Intelligence & Follow-Up Drafter
+Analyzes a client's pipeline stage, inactivity days, and meeting history to compute an objective Deal Health Score (0-100%), flag risks, recommend the next best action, and draft a personalized follow-up email.
+
+- **Route:** `POST /api/v1/ai/deal-insights/{client_id}`
+- **Response (200 OK):**
+  ```json
+  {
+    "message": "Deal intelligence insights generated.",
+    "data": {
+      "client_id": 5,
+      "company_name": "Starlight Media",
+      "contact_name": "Elena Fisher",
+      "contact_email": "elena@starlight.io",
+      "stage": "paperwork_onboarding",
+      "stage_label": "Paperwork/onboarding",
+      "deal_value": "45000.00",
+      "health_score": 70,
+      "health_status": "attention",
+      "days_since_last_contact": 6,
+      "risk_factors": [
+        "Over a week since last interaction (6 days).",
+        "Paperwork/Onboarding stage has stalled without contract follow-up."
+      ],
+      "next_best_action": "Send polite contract follow-up regarding SLA review and digital signature.",
+      "follow_up_draft": {
+        "subject": "Following up: Schedio & Starlight Media collaboration",
+        "body": "Hi Elena,\n\nI hope you are having a productive week. I am following up on our recent conversation regarding our collaboration with Starlight Media...\n\nBest regards,\nAlex\nSchedio Team"
+      }
+    }
+  }
+  ```
+

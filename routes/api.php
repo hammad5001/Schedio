@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\v1\AdminRegistrationController;
+use App\Http\Controllers\Api\v1\AiCopilotController;
 use App\Http\Controllers\Api\v1\AuthController;
 use App\Http\Controllers\Api\v1\CalendarController;
 use App\Http\Controllers\Api\v1\ClientController;
@@ -120,5 +121,14 @@ Route::prefix('v1')->group(function () {
         // Core Lookups
         Route::get('/departments', [LookupController::class, 'departments']);
         Route::get('/users', [LookupController::class, 'users']);
+
+        // Schedio Intelligent AI Copilot & Autonomous Workflows
+        Route::prefix('ai')->group(function () {
+            Route::post('/chat', [AiCopilotController::class, 'chat']);
+            Route::post('/quick-schedule', [AiCopilotController::class, 'quickSchedule']);
+            Route::get('/briefing', [AiCopilotController::class, 'briefing']);
+            Route::post('/summarize-meeting/{meeting}', [AiCopilotController::class, 'summarizeMeeting']);
+            Route::post('/deal-insights/{client}', [AiCopilotController::class, 'dealInsights']);
+        });
     });
 });
