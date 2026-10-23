@@ -103,10 +103,10 @@ class ReminderEngineService
      * Reschedule all active reminders when a meeting's start time changes.
      *
      * @param Meeting $meeting
-     * @param Carbon $oldStartTime
+     * @param Carbon|null $oldStartTime
      * @return int Count of adjusted reminders
      */
-    public function handleMeetingRescheduled(Meeting $meeting, Carbon $oldStartTime): int
+    public function handleMeetingRescheduled(Meeting $meeting, ?Carbon $oldStartTime = null): int
     {
         $pendingReminders = Reminder::where('remindable_type', Meeting::class)
             ->where('remindable_id', $meeting->id)
@@ -130,6 +130,14 @@ class ReminderEngineService
     }
 
     /**
+     * Update reminders for an existing meeting. Alias for handleMeetingRescheduled.
+     */
+    public function updateRemindersForMeeting(Meeting $meeting, ?Carbon $oldStartTime = null): int
+    {
+        return $this->handleMeetingRescheduled($meeting, $oldStartTime);
+    }
+
+    /**
      * Dismiss all pending reminders when a meeting is cancelled.
      *
      * @param Meeting $meeting
@@ -137,12 +145,26 @@ class ReminderEngineService
      */
     public function handleMeetingCancelled(Meeting $meeting): int
     {
-        return Reminder::where('remindable_type', Meeting::class)
+        $reminders = Reminder::where('remindable_type', Meeting::class)
             ->where('remindable_id', $meeting->id)
             ->whereIn('status', ['pending', 'queued'])
-            ->update([
+            ->get();
+
+        foreach ($reminders as $reminder) {
+            $reminder->update([
                 'status' => 'dismissed',
-                'message' => DB::raw("message || ' [Cancelled]'"),
+                'message' => $reminder->message ? $reminder->message . ' [Cancelled]' : 'Meeting has been cancelled.',
             ]);
+        }
+
+        return $reminders->count();
+    }
+
+    /**
+     * Cancel all pending reminders for a meeting. Alias for handleMeetingCancelled.
+     */
+    public function cancelRemindersForMeeting(Meeting $meeting): int
+    {
+        return $this->handleMeetingCancelled($meeting);
     }
 }

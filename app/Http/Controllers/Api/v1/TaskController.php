@@ -157,6 +157,100 @@ class TaskController extends Controller
         ]);
     }
 
+    /**
+     * Update task details.
+     */
+    public function update(Request $request, Task $task): JsonResponse
+    {
+        $this->authorizeTaskAccess($task, $request->user());
+
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'assigned_to' => ['required', 'exists:users,id'],
+            'meeting_id' => ['nullable', 'exists:meetings,id'],
+            'department_id' => ['nullable', 'exists:departments,id'],
+            'priority' => ['required', 'string', 'in:low,medium,high,urgent'],
+            'due_date' => ['nullable', 'date'],
+            'status' => ['nullable', 'string', 'in:todo,pending,in_progress,review,completed,cancelled'],
+        ]);
+
+        $oldAssignedTo = $task->assigned_to;
+        $oldStatus = $task->status;
+
+        $updateData = [
+            'title' => $validated['title'],
+            'description' => $validated['description'] ?? null,
+            'assigned_to' => $validated['assigned_to'],
+            'meeting_id' => $validated['meeting_id'] ?? null,
+            'department_id' => $validated['department_id'] ?? $task->department_id,
+            'priority' => $validated['priority'],
+            'due_date' => !empty($validated['due_date']) ? Carbon::parse($validated['due_date']) : null,
+        ];
+
+        if (!empty($validated['status'])) {
+            $updateData['status'] = $validated['status'];
+            if ($validated['status'] === 'completed' && $oldStatus !== 'completed') {
+                $updateData['completed_at'] = now();
+            } elseif ($validated['status'] !== 'completed') {
+                $updateData['completed_at'] = null;
+            }
+        }
+
+        $task->update($updateData);
+
+        if ((int) $oldAssignedTo !== (int) $validated['assigned_to']) {
+            $this->notificationService->notifyTaskActivity($task, 'assigned', $request->user());
+        } elseif (!empty($validated['status']) && $validated['status'] !== $oldStatus) {
+            $this->notificationService->notifyTaskActivity($task, 'status_changed', $request->user());
+        }
+
+        AuditLog::create([
+            'company_id' => $request->user()->company_id,
+            'user_id' => $request->user()->id,
+            'action' => 'task_updated',
+            'auditable_type' => Task::class,
+            'auditable_id' => $task->id,
+            'description' => "Task '{$task->title}' updated via Mobile API by {$request->user()->name}.",
+        ]);
+
+        $task->load(['assignee', 'creator', 'department', 'meeting']);
+
+        return response()->json([
+            'message' => 'Task updated successfully.',
+            'data' => $this->formatTask($task),
+        ], 200);
+    }
+
+    /**
+     * Delete task.
+     */
+    public function destroy(Request $request, Task $task): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        if (!$user->isSuperAdmin() && $task->created_by !== $user->id) {
+            abort(403, 'Unauthorized to delete this task. Only the creator or administrator can delete tasks.');
+        }
+
+        $title = $task->title;
+        $task->delete();
+
+        AuditLog::create([
+            'company_id' => $user->company_id,
+            'user_id' => $user->id,
+            'action' => 'task_deleted',
+            'auditable_type' => Task::class,
+            'auditable_id' => $task->id,
+            'description' => "Task '{$title}' deleted via Mobile API by {$user->name}.",
+        ]);
+
+        return response()->json([
+            'message' => 'Task deleted successfully.',
+        ], 200);
+    }
+
     protected function formatTask(Task $t): array
     {
         return [

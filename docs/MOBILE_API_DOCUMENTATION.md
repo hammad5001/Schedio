@@ -2,14 +2,14 @@
 
 **Target Audience:** Mobile Flutter Engineering Team (`zain-saeed-mughal/Schedio-App`)  
 **Backend:** Official Schedio Laravel Production Backend  
-**Specification Version:** 2.0 (Complete 58-Route Contract — Live & Verified)  
+**Specification Version:** 2.1 (Complete 60-Route Contract — Live & Verified)  
 **Date:** October 2026  
 
 ---
 
-## 1. Overview & 58-Route Verification Matrix
+## 1. Overview & 60-Route Verification Matrix
 
-The Schedio Flutter mobile application synchronizes directly with the central Schedio Laravel REST API. All 58 contract routes are implemented, registered under `/api/v1/*`, and verified via automated test suites.
+The Schedio Flutter mobile application synchronizes directly with the central Schedio Laravel REST API. All 60 contract routes are implemented, registered under `/api/v1/*`, and verified via automated test suites.
 
 ### Base URLs
 | Environment | Base URL | Protocol | Status |
@@ -24,7 +24,7 @@ Content-Type: application/json
 Authorization: Bearer <sanctum_access_token>
 ```
 
-### Complete Route Inventory (58 / 58 Routes)
+### Complete Route Inventory (60 / 60 Routes)
 
 | # | Group | Method | Endpoint | Auth | Purpose |
 | :- | :--- | :--- | :--- | :--- | :--- |
@@ -74,18 +74,20 @@ Authorization: Bearer <sanctum_access_token>
 | 44 | Tasks | `GET` | `/api/v1/tasks` | Bearer | Paginated tasks with status & priority filters |
 | 45 | Tasks | `POST` | `/api/v1/tasks` | Bearer | Create actionable task / meeting action item |
 | 46 | Tasks | `GET` | `/api/v1/tasks/{id}` | Bearer | View task details and assigned owner |
-| 47 | Tasks | `PATCH` | `/api/v1/tasks/{id}/status` | Bearer | Transition task status |
-| 48 | Notifications | `GET` | `/api/v1/notifications` | Bearer | Paginated notification feed (`all`, `unread`, `read`) |
-| 49 | Notifications | `PATCH` | `/api/v1/notifications/{id}/read` | Bearer | Mark notification as read |
-| 50 | Notifications | `PATCH` | `/api/v1/notifications/{id}/unread` | Bearer | Mark notification as unread |
-| 51 | Notifications | `DELETE` | `/api/v1/notifications/{id}` | Bearer | Dismiss notification |
-| 52 | Notifications | `POST` | `/api/v1/notifications/mark-all-read` | Bearer | Bulk mark all notifications as read |
-| 53 | Notifications | `GET` | `/api/v1/notifications/preferences` | Bearer | User notification channel preferences |
-| 54 | Notifications | `POST` | `/api/v1/notifications/preferences` | Bearer | Update channel & category toggles |
-| 55 | Admin | `GET` | `/api/v1/admin/registration-requests` | Bearer | List pending/approved/rejected registration requests |
-| 56 | Admin | `GET` | `/api/v1/admin/registration-requests/{id}/options` | Bearer | Available roles & departments for approval |
-| 57 | Admin | `PATCH` | `/api/v1/admin/registration-requests/{id}/approve` | Bearer | Approve registration request & assign role/department |
-| 58 | Admin | `PATCH` | `/api/v1/admin/registration-requests/{id}/reject` | Bearer | Reject registration request with reason |
+| 47 | Tasks | `PUT` | `/api/v1/tasks/{id}` | Bearer | Update task details, assignee, or priority |
+| 48 | Tasks | `DELETE` | `/api/v1/tasks/{id}` | Bearer | Delete task record |
+| 49 | Tasks | `PATCH` | `/api/v1/tasks/{id}/status` | Bearer | Transition task status |
+| 50 | Notifications | `GET` | `/api/v1/notifications` | Bearer | Paginated notification feed (`all`, `unread`, `read`) |
+| 51 | Notifications | `PATCH` | `/api/v1/notifications/{id}/read` | Bearer | Mark notification as read |
+| 52 | Notifications | `PATCH` | `/api/v1/notifications/{id}/unread` | Bearer | Mark notification as unread |
+| 53 | Notifications | `DELETE` | `/api/v1/notifications/{id}` | Bearer | Dismiss notification |
+| 54 | Notifications | `POST` | `/api/v1/notifications/mark-all-read` | Bearer | Bulk mark all notifications as read |
+| 55 | Notifications | `GET` | `/api/v1/notifications/preferences` | Bearer | User notification channel preferences |
+| 56 | Notifications | `POST` | `/api/v1/notifications/preferences` | Bearer | Update channel & category toggles |
+| 57 | Admin | `GET` | `/api/v1/admin/registration-requests` | Bearer | List pending/approved/rejected registration requests |
+| 58 | Admin | `GET` | `/api/v1/admin/registration-requests/{id}/options` | Bearer | Available roles & departments for approval |
+| 59 | Admin | `PATCH` | `/api/v1/admin/registration-requests/{id}/approve` | Bearer | Approve registration request & assign role/department |
+| 60 | Admin | `PATCH` | `/api/v1/admin/registration-requests/{id}/reject` | Bearer | Reject registration request with reason |
 
 *(Public booking routes `GET /api/v1/public/booking/{username}`, `GET .../slots`, `POST ...` are also supported).*
 
@@ -285,6 +287,8 @@ Authorization: Bearer <sanctum_access_token>
 | `attachments` | array of objects | Optional | Linked documents `[{"name": "Spec", "url": "https://...", "text": "..."}]` |
 | `attachments_text`| string | Optional | Comma/newline separated URLs or document names |
 
+> **Validation Note:** A meeting note cannot be completely empty. At least one primary content field (`agenda`/`title`, `discussion`/`content`, `decisions`, or `action_items`) must contain non-whitespace text. If all content fields are empty, the API returns `422 Unprocessable Entity` with an error message.
+
 ### Endpoints
 - **List Meeting Notes:** `GET /api/v1/meetings/{meeting_id}/notes`
 - **Create Note for Meeting:** `POST /api/v1/meetings/{meeting_id}/notes`
@@ -370,6 +374,24 @@ The backend supports the following canonical status enum values:
   "status": "completed"
 }
 ```
+- **Update Task Details:** `PUT /api/v1/tasks/{id}`
+```json
+{
+  "title": "Implement Flutter Offline Cache (Updated)",
+  "description": "Store lookups, user session, and calendar feed.",
+  "assigned_to": 2,
+  "priority": "urgent",
+  "due_date": "2026-10-29T12:00:00Z",
+  "status": "in_progress"
+}
+```
+- **Delete Task:** `DELETE /api/v1/tasks/{id}`
+*(Requires Super Administrator or task creator privileges; returns `200 OK` with confirmation message).*
+```json
+{
+  "message": "Task deleted successfully."
+}
+```
 
 ---
 
@@ -441,7 +463,7 @@ Super Administrators can manage staff and applicant approvals directly from the 
 ## 9. Pagination & Permission Standard
 
 ### Pagination Standard
-All list responses (`/meetings`, `/events`, `/clients`, `/tasks`, `/notifications`, `/admin/registration-requests`) adhere to standard Laravel pagination:
+All list responses (`/meetings`, `/events`, `/rooms`, `/clients`, `/tasks`, `/notifications`, `/admin/registration-requests`) adhere to standard Laravel pagination:
 ```json
 {
   "data": [ ... ],
@@ -582,8 +604,16 @@ To conduct safe authenticated write tests without compromising live website data
 1. **Dedicated Testing Company (Sandbox Tenant):**
    - The test account `mobile.tester@schedio.live` is scoped to a dedicated tenant workspace.
    - Any meetings, events, rooms, clients, or tasks created during Flutter testing are completely isolated from production business users via multi-tenant global scopes (`BelongsToTenant`).
-2. **Safe Test Data Cleanup:**
-   - Any test entities created with titles starting with `[TEST]` can be automatically purged or soft-deleted via the API `DELETE` endpoints.
+2. **Safe Test Data Cleanup Command:**
+   - Run the dedicated backend command to safely identify and purge sandbox test records (`[TEST]` cancelled meetings and `[TEST]` completed tasks):
+   ```bash
+   # Preview records without modifying data
+   php artisan schedio:cleanup-test-records --dry-run
+
+   # Execute cleanup permanently
+   php artisan schedio:cleanup-test-records --force
+   ```
+   - Only records with titles starting with `[TEST]` matching the test criteria are affected. Non-test company and production records are strictly untouched.
 
 ---
 
@@ -605,7 +635,7 @@ dart run tool/api_contract_check.dart https://schedio.live/api/v1/
 # 2. Authenticated contract check
 SCHEDIO_TOKEN="<token_from_login>" dart run tool/api_contract_check.dart https://schedio.live/api/v1/
 ```
-All 58 routes will now return expected status codes (`200`, `201`, `204`, `401`, `403` with valid JSON).
+All 60 routes will now return expected status codes (`200`, `201`, `204`, `401`, `403` with valid JSON).
 
 ---
 

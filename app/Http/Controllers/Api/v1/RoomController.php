@@ -36,10 +36,31 @@ class RoomController extends Controller
             $query->where('is_active', false);
         }
 
-        $rooms = $query->get();
+        $perPage = (int) $request->query('per_page', 25);
+
+        if ($request->query('paginate') === 'false' || $request->query('all') === 'true') {
+            $rooms = $query->get();
+            return response()->json([
+                'data' => $rooms->map(fn($r) => $this->formatRoom($r)),
+            ]);
+        }
+
+        $paginated = $query->paginate($perPage);
 
         return response()->json([
-            'data' => $rooms->map(fn($r) => $this->formatRoom($r)),
+            'data' => collect($paginated->items())->map(fn($r) => $this->formatRoom($r)),
+            'meta' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+            ],
+            'links' => [
+                'first' => $paginated->url(1),
+                'last' => $paginated->url($paginated->lastPage()),
+                'prev' => $paginated->previousPageUrl(),
+                'next' => $paginated->nextPageUrl(),
+            ],
         ]);
     }
 

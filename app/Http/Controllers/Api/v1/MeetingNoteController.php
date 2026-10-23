@@ -66,6 +66,20 @@ class MeetingNoteController extends Controller
             }
         }
 
+        $newAgenda = array_key_exists('agenda', $validated) ? trim((string) $validated['agenda']) : trim((string) $note->agenda);
+        $newDiscussion = array_key_exists('discussion', $validated) ? trim((string) $validated['discussion']) : trim((string) $note->discussion);
+        $newDecisions = array_key_exists('decisions', $validated) ? trim((string) $validated['decisions']) : trim((string) $note->decisions);
+        $newActionItems = array_key_exists('action_items', $validated) ? trim((string) $validated['action_items']) : trim((string) $note->action_items);
+
+        if ($newAgenda === '' && $newDiscussion === '' && $newDecisions === '' && $newActionItems === '') {
+            return response()->json([
+                'message' => 'A meeting note cannot be empty. Please provide an agenda, discussion, decision, or action items.',
+                'errors' => [
+                    'content' => ['A meeting note cannot be empty. Please provide an agenda, discussion, decision, or action items.'],
+                ],
+            ], 422);
+        }
+
         $oldValues = $note->toArray();
 
         $note->update([

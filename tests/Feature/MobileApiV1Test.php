@@ -547,4 +547,228 @@ class MobileApiV1Test extends TestCase
             'approval_status' => 'rejected',
         ]);
     }
+
+    public function test_meeting_reschedule_update_and_cancel_via_api(): void
+    {
+        $user = User::where('email', 'admin@schedio.com')->first();
+        $token = $user->createToken('test_device')->plainTextToken;
+        $meeting = Meeting::first();
+
+        // 1. Reschedule / update meeting -> returns 200 without HTTP 500
+        $newStart = now()->addDays(5)->setTime(10, 0)->toIso8601String();
+        $newEnd = now()->addDays(5)->setTime(11, 0)->toIso8601String();
+
+        $updateResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/v1/meetings/{$meeting->id}", [
+                'title' => 'Updated Strategy Alignment',
+                'description' => 'Updated description for roadmap.',
+                'start_time' => $newStart,
+                'end_time' => $newEnd,
+                'timezone' => 'America/New_York',
+                'type' => 'virtual',
+                'meeting_link' => 'https://meet.schedio.com/updated-strategy',
+            ]);
+
+        $updateResponse->assertStatus(200);
+        $updateResponse->assertJsonPath('data.title', 'Updated Strategy Alignment');
+        $this->assertDatabaseHas('meetings', [
+            'id' => $meeting->id,
+            'title' => 'Updated Strategy Alignment',
+        ]);
+
+        // 2. Cancel meeting -> returns 200 without HTTP 500
+        $cancelResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->patchJson("/api/v1/meetings/{$meeting->id}/cancel");
+
+        $cancelResponse->assertStatus(200);
+        $cancelResponse->assertJsonPath('data.status', 'cancelled');
+        $this->assertDatabaseHas('meetings', [
+            'id' => $meeting->id,
+            'status' => 'cancelled',
+        ]);
+    }
+
+    public function test_meeting_delete_via_api(): void
+    {
+        $user = User::where('email', 'admin@schedio.com')->first();
+        $token = $user->createToken('test_device')->plainTextToken;
+        $meeting = Meeting::first();
+
+        // Delete meeting -> returns 204 No Content without HTTP 500 and soft deletes record
+        $deleteResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->deleteJson("/api/v1/meetings/{$meeting->id}");
+
+        $deleteResponse->assertStatus(204);
+        $this->assertSoftDeleted('meetings', [
+            'id' => $meeting->id,
+        ]);
+    }
+
+    public function test_task_update_and_delete_via_api(): void
+    {
+        $user = User::where('email', 'admin@schedio.com')->first();
+        $assignee = User::where('email', 'marcus.v@schedio.com')->first();
+        $token = $user->createToken('test_device')->plainTextToken;
+
+        // 1. Create task
+        $task = Task::create([
+            'company_id' => $user->company_id,
+            'title' => 'Initial Task Title',
+            'description' => 'Initial description',
+            'assigned_to' => $assignee->id,
+            'created_by' => $user->id,
+            'status' => 'pending',
+            'priority' => 'medium',
+        ]);
+
+        // 2. Update task details via PUT /api/v1/tasks/{id}
+        $updateResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->putJson("/api/v1/tasks/{$task->id}", [
+                'title' => 'Updated Task Title With Priorities',
+                'description' => 'Comprehensive instructions.',
+                'assigned_to' => $assignee->id,
+                'priority' => 'urgent',
+                'status' => 'in_progress',
+                'due_date' => now()->addDays(2)->toIso8601String(),
+            ]);
+
+        $updateResponse->assertStatus(200);
+        $updateResponse->assertJsonPath('data.title', 'Updated Task Title With Priorities');
+        $updateResponse->assertJsonPath('data.priority', 'urgent');
+        $updateResponse->assertJsonPath('data.status', 'in_progress');
+
+        $this->assertDatabaseHas('tasks', [
+            'id' => $task->id,
+            'title' => 'Updated Task Title With Priorities',
+            'priority' => 'urgent',
+            'status' => 'in_progress',
+        ]);
+
+        // 3. Delete task via DELETE /api/v1/tasks/{id}
+        $deleteResponse = $this->withHeader('Authorization', "Bearer {$token}")
+            ->deleteJson("/api/v1/tasks/{$task->id}");
+
+        $deleteResponse->assertStatus(200);
+        $deleteResponse->assertJsonPath('message', 'Task deleted successfully.');
+        $this->assertSoftDeleted('tasks', [
+            'id' => $task->id,
+        ]);
+    }
+
+    public function test_empty_meeting_note_is_rejected_with_422(): void
+    {
+        $user = User::where('email', 'admin@schedio.com')->first();
+        $token = $user->createToken('test_device')->plainTextToken;
+        $meeting = Meeting::first();
+
+        // Submitting completely empty note must return HTTP 422
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson("/api/v1/meetings/{$meeting->id}/notes", [
+                'agenda' => '',
+                'discussion' => '   ',
+                'decisions' => null,
+            ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['content']);
+    }
+
+    public function test_rooms_listing_returns_pagination_metadata(): void
+    {
+        $user = User::where('email', 'admin@schedio.com')->first();
+        $token = $user->createToken('test_device')->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson('/api/v1/rooms?per_page=2');
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'data' => [
+                '*' => [
+                    'id',
+                    'name',
+                    'code',
+                    'location',
+                    'capacity',
+                    'color',
+                    'amenities',
+                    'is_active',
+                ],
+            ],
+            'meta' => [
+                'current_page',
+                'last_page',
+                'per_page',
+                'total',
+            ],
+            'links' => [
+                'first',
+                'last',
+                'prev',
+                'next',
+            ],
+        ]);
+
+        $this->assertEquals(2, $response->json('meta.per_page'));
+    }
+
+    public function test_cleanup_command_safely_removes_only_test_sandbox_records(): void
+    {
+        $company = \App\Models\Company::first();
+        $user = User::where('email', 'admin@schedio.com')->first();
+
+        // Create 2 sandbox test meetings (1 cancelled, 1 scheduled)
+        $cancelledTestMeeting = Meeting::create([
+            'company_id' => $company->id,
+            'title' => '[TEST] Cancelled Sandbox Meeting',
+            'organizer_id' => $user->id,
+            'start_time' => now()->addDay(),
+            'end_time' => now()->addDay()->addHour(),
+            'status' => 'cancelled',
+            'type' => 'virtual',
+        ]);
+
+        $scheduledTestMeeting = Meeting::create([
+            'company_id' => $company->id,
+            'title' => '[TEST] Scheduled Meeting (Must Preserve)',
+            'organizer_id' => $user->id,
+            'start_time' => now()->addDays(2),
+            'end_time' => now()->addDays(2)->addHour(),
+            'status' => 'scheduled',
+            'type' => 'virtual',
+        ]);
+
+        // Create 2 sandbox test tasks (1 completed, 1 pending)
+        $completedTestTask = Task::create([
+            'company_id' => $company->id,
+            'title' => '[TEST] Completed Mobile Verification',
+            'assigned_to' => $user->id,
+            'created_by' => $user->id,
+            'status' => 'completed',
+            'priority' => 'low',
+        ]);
+
+        $pendingTestTask = Task::create([
+            'company_id' => $company->id,
+            'title' => '[TEST] Pending Task (Must Preserve)',
+            'assigned_to' => $user->id,
+            'created_by' => $user->id,
+            'status' => 'pending',
+            'priority' => 'low',
+        ]);
+
+        // Run cleanup with --force
+        $this->artisan('schedio:cleanup-test-records', ['--force' => true])
+            ->assertSuccessful();
+
+        // The cancelled [TEST] meeting must be permanently purged
+        $this->assertDatabaseMissing('meetings', ['id' => $cancelledTestMeeting->id]);
+        // The scheduled [TEST] meeting must be untouched
+        $this->assertDatabaseHas('meetings', ['id' => $scheduledTestMeeting->id]);
+
+        // The completed [TEST] task must be permanently purged
+        $this->assertDatabaseMissing('tasks', ['id' => $completedTestTask->id]);
+        // The pending [TEST] task must be untouched
+        $this->assertDatabaseHas('tasks', ['id' => $pendingTestTask->id]);
+    }
 }

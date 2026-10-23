@@ -341,7 +341,19 @@ class MeetingController extends Controller
 
         $meeting->update(['status' => 'cancelled']);
         $this->reminderService->cancelRemindersForMeeting($meeting);
-        $this->notificationService->notifyMeetingCancelled($meeting);
+        $this->notificationService->notifyMeetingCancelled($meeting, $user->name);
+
+        AuditLog::create([
+            'company_id' => $user->company_id,
+            'user_id' => $user->id,
+            'action' => 'meeting_cancelled',
+            'auditable_type' => Meeting::class,
+            'auditable_id' => $meeting->id,
+            'description' => "Meeting '{$meeting->title}' cancelled via Mobile API by {$user->name}.",
+            'ip_address' => request()->ip(),
+        ]);
+
+        $meeting->loadMissing(['organizer', 'department', 'room', 'participants', 'client']);
 
         return response()->json([
             'message' => 'Meeting has been cancelled.',
@@ -358,8 +370,23 @@ class MeetingController extends Controller
         $user = $request->user();
         $this->authorizeManage($meeting, $user);
 
+        $meetingTitle = $meeting->title;
+        $meetingId = $meeting->id;
+        $companyId = $user->company_id;
+
         $this->reminderService->cancelRemindersForMeeting($meeting);
+        $this->notificationService->notifyMeetingCancelled($meeting, $user->name);
         $meeting->delete();
+
+        AuditLog::create([
+            'company_id' => $companyId,
+            'user_id' => $user->id,
+            'action' => 'meeting_deleted',
+            'auditable_type' => Meeting::class,
+            'auditable_id' => $meetingId,
+            'description' => "Meeting '{$meetingTitle}' deleted via Mobile API by {$user->name}.",
+            'ip_address' => request()->ip(),
+        ]);
 
         return response()->noContent();
     }
@@ -445,11 +472,27 @@ class MeetingController extends Controller
             'attachments' => ['nullable', 'array'],
         ]);
 
-        $agenda = $validated['agenda'] ?? ($validated['title'] ?? null);
-        $discussion = $validated['discussion'] ?? ($validated['content'] ?? null);
-        $actionItems = is_array($validated['action_items'] ?? null)
-            ? implode("\n", $validated['action_items'])
-            : ($validated['action_items'] ?? null);
+        $agenda = trim((string) ($validated['agenda'] ?? ($validated['title'] ?? '')));
+        $discussion = trim((string) ($validated['discussion'] ?? ($validated['content'] ?? '')));
+        $decisions = trim((string) ($validated['decisions'] ?? ''));
+        $rawActionItems = $validated['action_items'] ?? null;
+        $actionItems = is_array($rawActionItems)
+            ? trim(implode("\n", array_filter(array_map('trim', $rawActionItems))))
+            : trim((string) $rawActionItems);
+
+        if ($agenda === '' && $discussion === '' && $decisions === '' && $actionItems === '') {
+            return response()->json([
+                'message' => 'A meeting note cannot be empty. Please provide an agenda, discussion, decision, or action items.',
+                'errors' => [
+                    'content' => ['A meeting note cannot be empty. Please provide an agenda, discussion, decision, or action items.'],
+                ],
+            ], 422);
+        }
+
+        $agenda = $agenda !== '' ? $agenda : null;
+        $discussion = $discussion !== '' ? $discussion : null;
+        $decisions = $decisions !== '' ? $decisions : null;
+        $actionItems = $actionItems !== '' ? $actionItems : null;
 
         $note = MeetingNote::create([
             'company_id' => $request->user()->company_id,
